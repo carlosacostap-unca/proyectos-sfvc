@@ -42,7 +42,7 @@ export default function EvaluationRadarChart({ evaluation }: Props) {
             fillOpacity={0.5}
           />
           <Tooltip 
-            formatter={(value: number) => [`${value}/100`, 'Puntaje']}
+            formatter={(value: any) => [`${value}/100`, 'Puntaje']}
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
           />
         </RadarChart>
