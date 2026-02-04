@@ -57,3 +57,20 @@ export interface Project {
   created: string;
   updated: string;
 }
+
+export interface Evaluation {
+  id: string;
+  project: string; // Relation ID to Project
+  evaluator_name?: string; // Optional name of who evaluated
+  
+  // JSON field storing scores per dimension: { 'efficiency': 85, 'citizen_impact': 90 }
+  dimension_scores: Record<string, number>;
+  
+  // JSON field storing raw answers: { 'eff_1': 100, 'eff_2': 0 }
+  answers: Record<string, number>;
+  
+  total_score: number; // Average of dimension scores
+  
+  created: string;
+  updated: string;
+}

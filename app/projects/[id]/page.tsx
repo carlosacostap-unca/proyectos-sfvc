@@ -18,9 +18,13 @@ import {
   Code,
   Briefcase,
   FileText,
-  Layers
+  Layers,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
+import EvaluationSection from '@/app/components/EvaluationSection';
+import EditProjectModal from '@/app/components/EditProjectModal';
 
 // Helper to ensure we handle both arrays and single strings safely
 const ensureArray = (data: any): string[] => {
@@ -37,6 +41,7 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -57,7 +62,35 @@ export default function ProjectDetail() {
     };
 
     fetchProject();
+
+    // Subscribe to realtime updates for this specific project
+    pb.collection('projects').subscribe<Project>(id, (e) => {
+        if (e.action === 'update') {
+             // We can optimistically update the state or re-fetch
+             // Re-fetching ensures we get all expanded relations correctly
+             fetchProject();
+        } else if (e.action === 'delete') {
+            setError('El proyecto ha sido eliminado.');
+            setProject(null);
+        }
+    });
+
+    return () => {
+        pb.collection('projects').unsubscribe(id);
+    };
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!project || !confirm('¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.')) return;
+
+    try {
+      await pb.collection('projects').delete(project.id);
+      router.push('/');
+    } catch (err: any) {
+      console.error('Error deleting project:', err);
+      alert('Error al eliminar el proyecto: ' + err.message);
+    }
+  };
 
   if (loading) {
     return (
@@ -84,7 +117,7 @@ export default function ProjectDetail() {
       <div className="max-w-5xl mx-auto space-y-6">
         
         {/* Header / Nav */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <Link 
             href="/" 
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -92,7 +125,23 @@ export default function ProjectDetail() {
             <ArrowLeft size={20} />
             <span className="font-medium">Volver</span>
           </Link>
-          <div className="text-sm text-gray-400 font-mono">ID: {project.id}</div>
+
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-200"
+            >
+              <Edit size={16} />
+              Editar
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-400"
+            >
+              <Trash2 size={16} />
+              Eliminar
+            </button>
+          </div>
         </div>
 
         {/* Main Title Card */}
@@ -296,7 +345,25 @@ export default function ProjectDetail() {
 
           </div>
         </div>
+
+        {/* Evaluation Section */}
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
+           <EvaluationSection projectId={project.id} />
+        </div>
+
       </div>
+
+      {showEditModal && project && (
+        <EditProjectModal 
+          project={project} 
+          onClose={() => setShowEditModal(false)} 
+          onSuccess={() => {
+            setShowEditModal(false);
+            // Realtime subscription will auto-update the UI, or we could refetch here manually if we prefer
+            // fetchProject(); // Not needed if realtime is active, but safe to have implicit via state update from realtime
+          }} 
+        />
+      )}
     </div>
   );
 }
