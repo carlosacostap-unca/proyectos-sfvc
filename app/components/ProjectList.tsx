@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { Project, ProjectStatus } from '@/app/types';
 import { Plus, Search, Filter, X } from 'lucide-react';
 import Link from 'next/link';
 import CreateProjectWizard from './CreateProjectWizard';
 
-export default function ProjectManager() {
+export default function ProjectList() {
+  const { isAdmin } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -104,13 +106,15 @@ export default function ProjectManager() {
             <h2 className="text-2xl font-bold">Proyectos</h2>
             <p className="text-gray-500">Gestión de proyectos y desarrollos</p>
         </div>
-        <button 
-            onClick={() => setShowWizard(true)}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg font-medium"
-        >
-            <Plus size={20} />
-            Nuevo Proyecto
-        </button>
+        {isAdmin && (
+          <button 
+              onClick={() => setShowWizard(true)}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg font-medium"
+          >
+              <Plus size={20} />
+              Nuevo Proyecto
+          </button>
+        )}
       </div>
 
       {/* Filters & Search */}

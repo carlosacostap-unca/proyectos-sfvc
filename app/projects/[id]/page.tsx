@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { pb } from '@/lib/pocketbase';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { Project } from '@/app/types';
 import { 
   ArrowLeft, 
@@ -37,6 +38,7 @@ export default function ProjectDetail() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
+  const { user, isAdmin, loading: authLoading } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,13 @@ export default function ProjectDetail() {
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (!id || !user) return;
 
     const fetchProject = async () => {
       try {
@@ -126,22 +134,24 @@ export default function ProjectDetail() {
             <span className="font-medium">Volver</span>
           </Link>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto">
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-200"
-            >
-              <Edit size={16} />
-              Editar
-            </button>
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-400"
-            >
-              <Trash2 size={16} />
-              Eliminar
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-200"
+              >
+                <Edit size={16} />
+                Editar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-400"
+              >
+                <Trash2 size={16} />
+                Eliminar
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Main Title Card */}

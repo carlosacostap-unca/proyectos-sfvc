@@ -1,23 +1,36 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { EVALUATION_DIMENSIONS, EvaluationQuestion } from '@/app/data/evaluationCriteria';
 import { pb } from '@/lib/pocketbase';
+import { useAuth } from '@/app/contexts/AuthContext';
+import { Evaluation } from '@/app/types';
 
 interface Props {
   projectId: string;
+  evaluationToEdit?: Evaluation | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function EvaluationWizard({ projectId, onClose, onSuccess }: Props) {
+export default function EvaluationWizard({ projectId, evaluationToEdit, onClose, onSuccess }: Props) {
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0); // 0 to EVALUATION_DIMENSIONS.length - 1
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [evaluatorName, setEvaluatorName] = useState('');
+  const [answers, setAnswers] = useState<Record<string, number>>(evaluationToEdit?.answers || {});
+  const [evaluatorName, setEvaluatorName] = useState(evaluationToEdit?.evaluator_name || user?.email || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (evaluationToEdit) {
+      setAnswers(evaluationToEdit.answers);
+      setEvaluatorName(evaluationToEdit.evaluator_name || '');
+    } else if (user?.email) {
+      setEvaluatorName(user.email);
+    }
+  }, [evaluationToEdit, user]);
 
   const currentDimension = EVALUATION_DIMENSIONS[currentStep];
   const isLastStep = currentStep === EVALUATION_DIMENSIONS.length - 1;
@@ -63,13 +76,19 @@ export default function EvaluationWizard({ projectId, onClose, onSuccess }: Prop
 
       const data = {
         project: projectId,
+        user_id: user?.id,
         evaluator_name: evaluatorName,
         dimension_scores: dimensionScores,
         answers: answers,
         total_score: totalScore
       };
 
-      await pb.collection('evaluations').create(data);
+      if (evaluationToEdit) {
+        await pb.collection('evaluations').update(evaluationToEdit.id, data);
+      } else {
+        await pb.collection('evaluations').create(data);
+      }
+      
       onSuccess();
     } catch (err: any) {
       console.error('Error submitting evaluation:', err);
@@ -86,7 +105,9 @@ export default function EvaluationWizard({ projectId, onClose, onSuccess }: Prop
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b dark:border-zinc-800">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nueva Evaluación de Proyecto</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {evaluationToEdit ? 'Editar Evaluación' : 'Nueva Evaluación de Proyecto'}
+            </h2>
             <p className="text-sm text-gray-500">
               Paso {currentStep + 1} de {EVALUATION_DIMENSIONS.length}: {currentDimension.name}
             </p>

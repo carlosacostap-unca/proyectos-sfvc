@@ -62,6 +62,7 @@ export interface Project {
 export interface Evaluation {
   id: string;
   project: string; // Relation ID to Project
+  user_id?: string; // ID of the user who created it
   evaluator_name?: string; // Optional name of who evaluated
   
   // JSON field storing scores per dimension: { 'efficiency': 85, 'citizen_impact': 90 }

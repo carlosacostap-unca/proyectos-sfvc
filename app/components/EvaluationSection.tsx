@@ -3,9 +3,10 @@
 
 import { useEffect, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { Evaluation } from '@/app/types';
 import { EVALUATION_DIMENSIONS } from '@/app/data/evaluationCriteria';
-import { Plus, ClipboardCheck, ChevronDown, ChevronUp, History, HelpCircle } from 'lucide-react';
+import { Plus, ClipboardCheck, ChevronDown, ChevronUp, History, HelpCircle, Filter, Edit } from 'lucide-react';
 import EvaluationWizard from './EvaluationWizard';
 import EvaluationRadarChart from './EvaluationRadarChart';
 
@@ -14,11 +15,14 @@ interface Props {
 }
 
 export default function EvaluationSection({ projectId }: Props) {
+  const { user, isAdmin } = useAuth();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [showWizard, setShowWizard] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDimension, setExpandedDimension] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'mine'>('all');
+  const [evaluationToEdit, setEvaluationToEdit] = useState<Evaluation | null>(null);
 
   const fetchEvaluations = async () => {
     try {
@@ -66,6 +70,12 @@ export default function EvaluationSection({ projectId }: Props) {
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
+  const filteredEvaluations = evaluations.filter(e => {
+    if (!isAdmin) return true;
+    if (filterType === 'all') return true;
+    return e.user_id === user?.id; 
+  });
+
   return (
     <div className="space-y-6">
       
@@ -74,32 +84,59 @@ export default function EvaluationSection({ projectId }: Props) {
           <ClipboardCheck className="text-blue-600" />
           Evaluaciones de Modernización
         </h3>
-        <button
-          onClick={() => setShowWizard(true)}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium w-full sm:w-auto"
-        >
-          <Plus size={16} />
-          Nueva Evaluación
-        </button>
+        
+        {isAdmin && (
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as 'all' | 'mine')}
+                className="appearance-none pl-3 pr-8 py-2 text-sm border rounded-lg bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
+              >
+                <option value="all">Todas</option>
+                <option value="mine">Mis Evaluaciones</option>
+              </select>
+              <Filter size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+
+            <button
+              onClick={() => {
+                setEvaluationToEdit(null);
+                setShowWizard(true);
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium flex-1 sm:flex-none"
+            >
+              <Plus size={16} />
+              Nueva Evaluación
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
         <div className="text-center py-8 text-gray-500 animate-pulse">Cargando evaluaciones...</div>
-      ) : evaluations.length === 0 ? (
+      ) : filteredEvaluations.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-zinc-800 rounded-xl border border-dashed dark:border-zinc-700">
           <ClipboardCheck className="mx-auto h-12 w-12 text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No hay evaluaciones registradas</p>
-          <p className="text-sm text-gray-400 mb-4">Realiza la primera evaluación de dimensiones para este proyecto.</p>
-          <button
-            onClick={() => setShowWizard(true)}
-            className="text-blue-600 hover:underline text-sm font-medium"
-          >
-            Comenzar Evaluación
-          </button>
+          <p className="text-sm text-gray-400 mb-4">
+            {filterType === 'mine' ? 'No has realizado ninguna evaluación aún.' : 'Realiza la primera evaluación de dimensiones para este proyecto.'}
+          </p>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setEvaluationToEdit(null);
+                setShowWizard(true);
+              }}
+              className="text-blue-600 hover:underline text-sm font-medium"
+            >
+              Comenzar Evaluación
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
-          {evaluations.map((evaluation) => (
+          {filteredEvaluations.map((evaluation) => (
             <div 
               key={evaluation.id} 
               className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 overflow-hidden transition-all"
@@ -123,8 +160,23 @@ export default function EvaluationSection({ projectId }: Props) {
                   </div>
                 </div>
                 
-                <div className="text-gray-400">
-                  {expandedId === evaluation.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                <div className="flex items-center gap-2">
+                  {isAdmin && evaluation.user_id === user?.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEvaluationToEdit(evaluation);
+                        setShowWizard(true);
+                      }}
+                      className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      title="Editar evaluación"
+                    >
+                      <Edit size={18} />
+                    </button>
+                  )}
+                  <div className="text-gray-400">
+                    {expandedId === evaluation.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </div>
                 </div>
               </div>
 
@@ -216,7 +268,8 @@ export default function EvaluationSection({ projectId }: Props) {
 
       {showWizard && (
         <EvaluationWizard 
-          projectId={projectId} 
+          projectId={projectId}
+          evaluationToEdit={evaluationToEdit}
           onClose={() => setShowWizard(false)} 
           onSuccess={() => {
             setShowWizard(false);
