@@ -32,6 +32,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
     backend_tech: project.backend_tech || [],
     database: project.database || [],
     shift: typeof project.shift === 'string' ? [project.shift] : (project.shift || []), // Handle legacy string shift if any
+    project_type: typeof project.project_type === 'string' ? [project.project_type] : (project.project_type || []),
   });
 
   const [areas, setAreas] = useState<RequestingArea[]>([]);
@@ -50,11 +51,30 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
     }).catch(err => console.error('Error loading dependencies:', err));
   }, []);
 
+  // Auto-calculate end date based on start date and duration
+  useEffect(() => {
+    if (formData.start_date && formData.estimated_duration) {
+      const start = new Date(formData.start_date);
+      if (!isNaN(start.getTime())) {
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + Number(formData.estimated_duration));
+        
+        // Compare dates (YYYY-MM-DD) to avoid unnecessary updates/loops
+        const currentEndDay = formData.estimated_end_date ? new Date(formData.estimated_end_date).toISOString().split('T')[0] : '';
+        const newEndDay = end.toISOString().split('T')[0];
+        
+        if (currentEndDay !== newEndDay) {
+          setFormData(prev => ({ ...prev, estimated_end_date: end.toISOString() }));
+        }
+      }
+    }
+  }, [formData.start_date, formData.estimated_duration]);
+
   const handleChange = (field: keyof Project, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleMultiSelect = (field: 'frontend_tech' | 'backend_tech' | 'database' | 'shift', value: string) => {
+  const handleMultiSelect = (field: 'frontend_tech' | 'backend_tech' | 'database' | 'shift' | 'project_type', value: string) => {
     setFormData(prev => {
       const current = (prev[field] as string[]) || [];
       if (current.includes(value)) {
@@ -77,14 +97,33 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
         year: Number(formData.year),
         estimated_duration: Number(formData.estimated_duration),
         // Ensure shift is always array for PB
-        shift: Array.isArray(formData.shift) ? formData.shift : [], 
+        shift: Array.isArray(formData.shift) ? formData.shift : [],
+        project_type: Array.isArray(formData.project_type) ? formData.project_type : [],
       };
+
+      // Check for duplicates (name)
+      const existingName = await pb.collection('projects').getList(1, 1, {
+        filter: `system_name = "${formData.system_name}" && id != "${project.id}"`,
+      });
+      if (existingName.totalItems > 0) {
+        throw new Error('Ya existe otro proyecto con este nombre.');
+      }
+
+      // Check for duplicates (code)
+      const existingCode = await pb.collection('projects').getList(1, 1, {
+        filter: `code = "${formData.code}" && id != "${project.id}"`,
+      });
+      if (existingCode.totalItems > 0) {
+        throw new Error('Ya existe otro proyecto con este código.');
+      }
 
       await pb.collection('projects').update(project.id, dataToSend);
       onSuccess();
     } catch (err: any) {
-      console.error('Error updating project:', err);
+      // console.error('Error updating project:', err); // Suppress console error to avoid UI overlay
       setError(err.message || 'Error al actualizar el proyecto.');
+      // Scroll to top of form to show error if it's rendered there, 
+      // or ensure error is rendered in a visible place (e.g. top of form)
     } finally {
       setIsSubmitting(false);
     }
@@ -105,6 +144,14 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <form id="edit-project-form" onSubmit={handleSubmit} className="space-y-8">
+            
+            {/* Error Message at the top */}
+            {error && (
+              <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2 animate-pulse">
+                <AlertCircle size={20} />
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
             
             {/* Section 1: Basic Info */}
             <div className="space-y-4">
@@ -141,14 +188,23 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Tipo de Proyecto</label>
-                  <select 
-                    value={formData.project_type}
-                    onChange={e => handleChange('project_type', e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
-                  >
-                    {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <label className="block text-sm font-medium mb-2">Tipo de Proyecto</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PROJECT_TYPES.map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleMultiSelect('project_type', type)}
+                        className={`px-3 py-1 rounded-full text-xs border ${
+                          (formData.project_type as string[])?.includes(type)
+                            ? 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                            : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:border-gray-400'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Estado</label>
@@ -159,6 +215,19 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                   >
                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">¿Activo?</label>
+                  <label className="inline-flex items-center cursor-pointer mt-2">
+                    <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={!!formData.active}
+                        onChange={(e) => handleChange('active', e.target.checked)}
+                    />
+                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{formData.active ? 'Activo' : 'Inactivo'}</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -301,9 +370,10 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                   <label className="block text-sm font-medium mb-1">Fecha Fin Estimada</label>
                   <input 
                     type="date" 
+                    readOnly
+                    tabIndex={-1}
                     value={formData.estimated_end_date ? new Date(formData.estimated_end_date).toISOString().split('T')[0] : ''}
-                    onChange={e => handleChange('estimated_end_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-zinc-900/50 dark:border-zinc-800 dark:text-zinc-500"
                   />
                 </div>
                 <div>
@@ -325,11 +395,11 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
               <div>
                 <label className="block text-sm font-medium mb-1">Carpeta Drive</label>
                 <input 
-                  type="text" 
+                  type="url" 
                   value={formData.drive_folder || ''}
                   onChange={e => handleChange('drive_folder', e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
-                  placeholder="URL de la carpeta"
+                  placeholder="URL de la carpeta (https://...)"
                 />
               </div>
               <div>
@@ -343,13 +413,6 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                 />
               </div>
             </div>
-
-            {error && (
-              <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-                <AlertCircle size={20} />
-                {error}
-              </div>
-            )}
 
           </form>
         </div>

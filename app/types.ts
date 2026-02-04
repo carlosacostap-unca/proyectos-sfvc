@@ -40,15 +40,16 @@ export interface Project {
   estimated_end_date: string; // ISO Date
   product_owner: string; // Relation ID
   observations: string; // HTML/Rich Text
-  drive_folder: string; // HTML/Rich Text
+  drive_folder: string; // URL
   server: string; // HTML/Rich Text
+  active: boolean;
 
   expand?: {
     requesting_area?: RequestingArea;
     product_owner?: ProductOwner;
   };
   
-  project_type: 'Interno' | 'Externo' | 'Opensource';
+  project_type: string[]; // Multi-select: 'Interno' | 'Externo' | 'Opensource'
   frontend_tech: string[]; // Multi-select
   backend_tech: string[]; // Multi-select
   database: string[]; // Multi-select

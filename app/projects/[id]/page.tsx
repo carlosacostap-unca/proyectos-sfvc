@@ -167,9 +167,16 @@ export default function ProjectDetail() {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <span className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-zinc-700 font-semibold text-gray-700 dark:text-gray-200 shadow-sm border dark:border-zinc-600">
-                {project.status}
-              </span>
+              <div className="flex gap-2">
+                  {project.active !== undefined && (
+                    <span className={`px-4 py-2 rounded-lg font-semibold shadow-sm border dark:border-zinc-600 ${project.active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-zinc-700 dark:text-gray-400'}`}>
+                        {project.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  )}
+                  <span className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-zinc-700 font-semibold text-gray-700 dark:text-gray-200 shadow-sm border dark:border-zinc-600">
+                    {project.status}
+                  </span>
+              </div>
             </div>
           </div>
         </div>
@@ -190,13 +197,13 @@ export default function ProjectDetail() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Inicio:</span>
                   <span className="font-medium">
-                    {project.start_date ? new Date(project.start_date).toLocaleDateString() : 'No definida'}
+                    {project.start_date ? new Date(project.start_date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'No definida'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Fin Estimado:</span>
                   <span className="font-medium">
-                    {project.estimated_end_date ? new Date(project.estimated_end_date).toLocaleDateString() : 'No definida'}
+                    {project.estimated_end_date ? new Date(project.estimated_end_date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'No definida'}
                   </span>
                 </div>
                 <div className="flex justify-between">

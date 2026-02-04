@@ -44,7 +44,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     year: new Date().getFullYear(),
     system_name: '',
     requesting_area: '',
-    project_type: 'Interno',
+    project_type: [],
     status: 'Planificación',
     frontend_tech: [],
     backend_tech: [],
@@ -56,7 +56,8 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     product_owner: '',
     observations: '',
     drive_folder: '',
-    server: ''
+    server: '',
+    active: true
   });
 
   useEffect(() => {
@@ -72,6 +73,22 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       
     // Focus management could go here
   }, []);
+
+  // Auto-calculate end date based on start date and duration
+  useEffect(() => {
+    if (formData.start_date && formData.estimated_duration) {
+      const start = new Date(formData.start_date);
+      if (!isNaN(start.getTime())) {
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + Number(formData.estimated_duration));
+        const endString = end.toISOString().split('T')[0];
+        // Only update if different to avoid loops (though with primitive check it's fine)
+        if (formData.estimated_end_date !== endString) {
+          setFormData(prev => ({ ...prev, estimated_end_date: endString }));
+        }
+      }
+    }
+  }, [formData.start_date, formData.estimated_duration]);
 
   // Questions configuration
   const questions = [
@@ -89,7 +106,20 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       type: 'text',
       field: 'system_name',
       placeholder: 'Ej: Sistema de Gestión de Expedientes',
-      validate: () => !!formData.system_name,
+      validate: async () => {
+        if (!formData.system_name) return false;
+        try {
+          const records = await pb.collection('projects').getList(1, 1, {
+            filter: `system_name = "${formData.system_name}"`,
+          });
+          if (records.totalItems > 0) throw new Error('Ya existe un proyecto con este nombre.');
+          return true;
+        } catch (e: any) {
+          if (e.message === 'Ya existe un proyecto con este nombre.') throw e;
+          console.error(e);
+          return false;
+        }
+      },
     },
     {
       id: 'code',
@@ -98,7 +128,20 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       type: 'text',
       field: 'code',
       placeholder: 'Ej: SGE-2024',
-      validate: () => !!formData.code,
+      validate: async () => {
+        if (!formData.code) return false;
+        try {
+          const records = await pb.collection('projects').getList(1, 1, {
+            filter: `code = "${formData.code}"`,
+          });
+          if (records.totalItems > 0) throw new Error('Ya existe un proyecto con este código.');
+          return true;
+        } catch (e: any) {
+          if (e.message === 'Ya existe un proyecto con este código.') throw e;
+          console.error(e);
+          return false;
+        }
+      },
     },
     {
       id: 'year_duration',
@@ -118,8 +161,16 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       validate: () => !!formData.status,
     },
     {
+      id: 'active',
+      title: '5. ¿El proyecto está activo?',
+      description: 'Indica si el proyecto se encuentra en curso.',
+      type: 'boolean',
+      field: 'active',
+      validate: () => true,
+    },
+    {
       id: 'dates',
-      title: '5. Fechas Importantes',
+      title: '6. Fechas Importantes',
       description: 'Inicio y finalización estimada.',
       type: 'dates-group',
       fields: ['start_date', 'estimated_end_date'],
@@ -127,7 +178,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'area',
-      title: '6. Área Solicitante',
+      title: '7. Área Solicitante',
       description: '¿Quién solicitó este desarrollo?',
       type: 'select',
       field: 'requesting_area',
@@ -136,7 +187,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'product_owner',
-      title: '7. Product Owner',
+      title: '8. Product Owner',
       description: '¿Quién es el responsable del producto?',
       type: 'select',
       field: 'product_owner',
@@ -145,16 +196,16 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'type',
-      title: '8. Tipo de Proyecto',
+      title: '9. Tipo de Proyecto',
       description: 'Selecciona la naturaleza del proyecto.',
       type: 'cards',
       field: 'project_type',
       options: PROJECT_TYPES,
-      validate: () => !!formData.project_type,
+      validate: () => (formData.project_type?.length || 0) > 0,
     },
     {
       id: 'tech_stack',
-      title: '9. Stack Tecnológico',
+      title: '10. Stack Tecnológico',
       description: 'Selecciona todas las tecnologías que apliquen.',
       type: 'multiselect-group',
       groups: [
@@ -166,7 +217,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'shift',
-      title: '10. Turno de Desarrollo',
+      title: '11. Turno de Desarrollo',
       description: '¿En qué turno se trabajará?',
       type: 'multiselect',
       field: 'shift',
@@ -175,7 +226,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'observations',
-      title: '11. Observaciones',
+      title: '12. Observaciones',
       description: 'Detalles adicionales, notas o comentarios.',
       type: 'textarea',
       field: 'observations',
@@ -184,16 +235,25 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'drive',
-      title: '12. Carpeta de Drive',
+      title: '13. Carpeta de Drive',
       description: 'Enlace o nombre de la carpeta de documentación.',
-      type: 'text', // Or textarea if long
+      type: 'text',
+      inputType: 'url',
       field: 'drive_folder',
       placeholder: 'Ej: https://drive.google.com/...',
-      validate: () => true, // Optional
+      validate: () => {
+        if (!formData.drive_folder) return true;
+        try {
+          new URL(formData.drive_folder);
+          return true;
+        } catch {
+          throw new Error('La URL ingresada no es válida. Debe comenzar con http:// o https://');
+        }
+      },
     },
     {
       id: 'server',
-      title: '13. Servidor',
+      title: '14. Servidor',
       description: 'Información sobre el servidor de despliegue.',
       type: 'textarea', // Rich text requested, so textarea
       field: 'server',
@@ -212,8 +272,24 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   const totalSteps = questions.length;
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
-  const handleNext = () => {
-    if (questions[currentStep].validate()) {
+  const handleNext = async () => {
+    const question = questions[currentStep];
+    let isValid = false;
+    let errorMessage = 'Por favor completa este campo para continuar.';
+
+    try {
+      const result = question.validate();
+      if (result instanceof Promise) {
+        isValid = await result;
+      } else {
+        isValid = result;
+      }
+    } catch (error: any) {
+      isValid = false;
+      errorMessage = error.message || errorMessage;
+    }
+
+    if (isValid) {
       if (currentStep < totalSteps - 1) {
         setDirection(1);
         setCurrentStep(prev => prev + 1);
@@ -221,8 +297,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
         handleSubmit();
       }
     } else {
-      // Shake animation or error feedback could go here
-      alert('Por favor completa este campo para continuar.');
+      alert(errorMessage);
     }
   };
 
@@ -276,12 +351,33 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           </div>
         );
 
+      case 'boolean':
+        return (
+          <div className="flex flex-col items-center space-y-4">
+             <button
+                onClick={() => updateField(question.field, !formData[question.field as keyof Project])}
+                className={`relative w-20 h-10 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  formData[question.field as keyof Project] ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+             >
+                <span
+                  className={`absolute top-1 left-1 bg-white w-8 h-8 rounded-full shadow-md transform transition-transform duration-300 ${
+                    formData[question.field as keyof Project] ? 'translate-x-10' : ''
+                  }`}
+                />
+             </button>
+             <span className="text-xl font-medium text-gray-700 dark:text-gray-300">
+               {formData[question.field as keyof Project] ? 'Sí, Activo' : 'No, Inactivo'}
+             </span>
+          </div>
+        );
+
       case 'text':
         return (
-          <div className="w-full max-w-2xl">
+          <div key={question.id} className="w-full max-w-2xl">
             <input
               autoFocus
-              type="text"
+              type={question.inputType || 'text'}
               value={formData[question.field as keyof Project] as string}
               onChange={(e) => updateField(question.field, e.target.value)}
               placeholder={question.placeholder}
@@ -347,13 +443,26 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
             {question.options.map((option: string, idx: number) => {
-                const isSelected = formData[question.field as keyof Project] === option;
+                const currentVal = formData[question.field as keyof Project];
+                // Handle both array (multiselect) and string (single select) for flexibility
+                const isArray = Array.isArray(currentVal);
+                const isSelected = isArray 
+                    ? (currentVal as string[]).includes(option) 
+                    : currentVal === option;
+
                 return (
                     <div
                         key={option}
                         onClick={() => {
-                            updateField(question.field, option);
-                            // handleNext(); // Auto advance feels snappy
+                            if (isArray) {
+                                const currentArray = currentVal as string[];
+                                const newValue = isSelected
+                                    ? currentArray.filter(v => v !== option)
+                                    : [...currentArray, option];
+                                updateField(question.field, newValue);
+                            } else {
+                                updateField(question.field, option);
+                            }
                         }}
                         className={cn(
                             "cursor-pointer p-6 rounded-xl border-2 transition-all duration-200 hover:shadow-lg flex items-center justify-center text-center h-32 md:h-48 text-xl font-medium relative overflow-hidden group",
@@ -472,10 +581,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                 <label className="block text-sm font-bold text-blue-600 mb-2 uppercase tracking-wider">Fecha Final (Estimada)</label>
                 <input
                     type="date"
+                    readOnly
+                    tabIndex={-1}
                     value={formData.estimated_end_date as string}
-                    onChange={(e) => updateField('estimated_end_date', e.target.value)}
-                    className="w-full text-2xl bg-transparent border-b-2 border-gray-300 focus:border-blue-600 outline-none py-2 text-gray-700 dark:text-gray-200"
-                    onKeyDown={handleKeyDown}
+                    className="w-full text-2xl bg-transparent border-b-2 border-gray-200 focus:border-gray-200 outline-none py-2 text-gray-400 cursor-not-allowed"
                 />
             </div>
           </div>
@@ -521,11 +630,15 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                     </div>
                     <div>
                         <span className="block text-gray-500">Tipo</span>
-                        <span className="font-medium">{formData.project_type}</span>
+                        <span className="font-medium">
+                            {Array.isArray(formData.project_type) 
+                                ? formData.project_type.join(', ') 
+                                : formData.project_type}
+                        </span>
                     </div>
                     <div>
                         <span className="block text-gray-500">Fechas</span>
-                        <span className="font-medium">{formData.start_date} <span className="text-gray-400">→</span> {formData.estimated_end_date || '?'}</span>
+                        <span className="font-medium">{formData.start_date?.split('-').reverse().join('/')} <span className="text-gray-400">→</span> {formData.estimated_end_date?.split('-').reverse().join('/') || '?'}</span>
                     </div>
                     <div>
                         <span className="block text-gray-500">Area Solicitante</span>

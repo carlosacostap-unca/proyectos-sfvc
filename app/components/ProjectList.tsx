@@ -17,6 +17,7 @@ export default function ProjectManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [activeFilter, setActiveFilter] = useState<string>('');
 
   const fetchProjects = async () => {
     try {
@@ -60,15 +61,26 @@ export default function ProjectManager() {
       (project.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter ? project.status === statusFilter : true;
-    const matchesType = typeFilter ? project.project_type === typeFilter : true;
+    const matchesType = typeFilter 
+      ? (Array.isArray(project.project_type) 
+          ? project.project_type.includes(typeFilter) 
+          : project.project_type === typeFilter) 
+      : true;
 
-    return matchesSearch && matchesStatus && matchesType;
+    const matchesActive = activeFilter === '' 
+      ? true 
+      : activeFilter === 'true' 
+        ? project.active !== false 
+        : project.active === false;
+
+    return matchesSearch && matchesStatus && matchesType && matchesActive;
   });
 
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
     setTypeFilter('');
+    setActiveFilter('');
   };
 
   if (showWizard) {
@@ -119,6 +131,16 @@ export default function ProjectManager() {
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
+                <select 
+                    value={activeFilter}
+                    onChange={(e) => setActiveFilter(e.target.value)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                    <option value="">Todos (Activos/Inactivos)</option>
+                    <option value="true">Activos</option>
+                    <option value="false">Inactivos</option>
+                </select>
+
                 <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
@@ -209,14 +231,22 @@ export default function ProjectManager() {
                     <div className="group p-6 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white dark:bg-zinc-800 dark:border-zinc-700 flex flex-col space-y-3 hover:border-blue-200 dark:hover:border-blue-900 h-full overflow-hidden">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div className="min-w-0 w-full">
-                                <h3 className="font-bold text-xl text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors truncate">{project.system_name}</h3>
+                                <h3 className="font-bold text-xl text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors truncate flex items-center gap-2">
+                                    {project.system_name}
+                                    {project.active && <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" title="Activo"></span>}
+                                    {project.active === false && <span className="w-2.5 h-2.5 rounded-full bg-gray-300 shrink-0" title="Inactivo"></span>}
+                                </h3>
                                 {project.status && (
                                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 mt-1">{project.status}</span>
                                 )}
                             </div>
-                            <span className={`shrink-0 text-xs px-2 py-1 rounded-full self-start ${project.project_type === 'Interno' ? 'bg-blue-100 text-blue-800' : project.project_type === 'Externo' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
-                                {project.project_type}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                                {(Array.isArray(project.project_type) ? project.project_type : [project.project_type]).filter(Boolean).map(t => (
+                                    <span key={t} className={`shrink-0 text-xs px-2 py-1 rounded-full ${t === 'Interno' ? 'bg-blue-100 text-blue-800' : t === 'Externo' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
+                                        {t}
+                                    </span>
+                                ))}
+                            </div>
                         </div>
                         
                         <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2 flex-grow">
