@@ -206,7 +206,7 @@ export default function ProjectManager() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredProjects.map((project) => (
                 <Link key={project.id} href={`/projects/${project.id}`} className="block h-full">
-                    <div className="group p-6 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white dark:bg-zinc-800 dark:border-zinc-700 flex flex-col space-y-3 hover:border-blue-200 dark:hover:border-blue-900 h-full">
+                    <div className="group p-6 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white dark:bg-zinc-800 dark:border-zinc-700 flex flex-col space-y-3 hover:border-blue-200 dark:hover:border-blue-900 h-full overflow-hidden">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div className="min-w-0 w-full">
                                 <h3 className="font-bold text-xl text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors truncate">{project.system_name}</h3>
@@ -222,7 +222,7 @@ export default function ProjectManager() {
                         <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2 flex-grow">
                             <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                 <span className="text-gray-400 font-medium">Código:</span> 
-                                <span className="font-mono">{project.code}</span>
+                                <span className="font-mono truncate">{project.code}</span>
                             </p>
                             {project.expand?.requesting_area && (
                                 <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
@@ -238,7 +238,7 @@ export default function ProjectManager() {
                             )}
                             <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                 <span className="text-gray-400 font-medium">Duración:</span> 
-                                <span>{project.estimated_duration} meses</span>
+                                <span className="truncate">{project.estimated_duration} meses</span>
                             </p>
                         </div>
 
