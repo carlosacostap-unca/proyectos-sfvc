@@ -148,15 +148,17 @@ export default function ProjectDetail() {
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6 md:p-8">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{project.system_name}</h1>
-                <span className={`px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide
-                  ${project.project_type === 'Interno' ? 'bg-blue-100 text-blue-800' : 
-                    project.project_type === 'Externo' ? 'bg-green-100 text-green-800' : 
-                    'bg-purple-100 text-purple-800'}`}
-                >
-                  {project.project_type}
-                </span>
+                {ensureArray(project.project_type).map(type => (
+                  <span key={type} className={`px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide
+                    ${type === 'Interno' ? 'bg-blue-100 text-blue-800' : 
+                      type === 'Externo' ? 'bg-green-100 text-green-800' : 
+                      'bg-purple-100 text-purple-800'}`}
+                  >
+                    {type}
+                  </span>
+                ))}
               </div>
               <p className="text-gray-500 flex items-center gap-2">
                 <Code size={16} />
