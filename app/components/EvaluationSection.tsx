@@ -30,6 +30,7 @@ export default function EvaluationSection({ projectId }: Props) {
       const records = await pb.collection('evaluations').getList<Evaluation>(1, 50, {
         filter: `project = "${projectId}"`,
         sort: '-created',
+        expand: 'user',
       });
       setEvaluations(records.items);
       
@@ -73,7 +74,7 @@ export default function EvaluationSection({ projectId }: Props) {
   const filteredEvaluations = evaluations.filter(e => {
     if (!isAdmin) return true;
     if (filterType === 'all') return true;
-    return e.user_id === user?.id; 
+    return e.user === user?.id; 
   });
 
   return (
@@ -155,13 +156,13 @@ export default function EvaluationSection({ projectId }: Props) {
                     </p>
                     <p className="text-sm text-gray-500 flex items-center gap-1">
                       <History size={12} />
-                      Por {evaluation.evaluator_name || 'Anónimo'}
+                      Por {evaluation.expand?.user?.name || evaluation.expand?.user?.email || 'Usuario Desconocido'}
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {isAdmin && evaluation.user_id === user?.id && (
+                  {isAdmin && evaluation.user === user?.id && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

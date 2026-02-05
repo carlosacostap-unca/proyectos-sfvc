@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, ProductOwner, ProjectStatus } from '@/app/types';
+import { Project, RequestingArea, ProductOwner, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
 
 interface Props {
   project: Project;
@@ -12,17 +12,7 @@ interface Props {
 }
 
 // Constants (duplicated from wizard for now)
-const PROJECT_TYPES = ['Interno', 'Externo', 'Opensource'];
 const SHIFTS = ['Mañana', 'Tarde'];
-const STATUS_OPTIONS: ProjectStatus[] = [
-  'Planificación', 'Análisis', 'Diseño', 'Desarrollo', 'Testing', 
-  'Despliegue', 'Capacitación', 'Producción', 'Necesita Informacion', 
-  'Finalizado', 'Archivado', 'Exitoso', 'Fracaso', 'Muerto', 
-  'Suspendido', 'Mantenimiento'
-];
-const FE_TECHS = ['React', 'Vue', 'Angular', 'Next.js', 'Svelte', 'Tailwind', 'Bootstrap'];
-const BE_TECHS = ['Node.js', 'Python', 'Go', 'Java', 'PHP', 'C#', 'PocketBase', 'Express'];
-const DATABASES = ['PostgreSQL', 'MySQL', 'MongoDB', 'SQLite', 'Redis', 'Firebase'];
 
 export default function EditProjectModal({ project, onClose, onSuccess }: Props) {
   const [formData, setFormData] = useState<Partial<Project>>({
@@ -37,6 +27,11 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
 
   const [areas, setAreas] = useState<RequestingArea[]>([]);
   const [productOwners, setProductOwners] = useState<ProductOwner[]>([]);
+  const [feTechs, setFeTechs] = useState<TechItem[]>([]);
+  const [beTechs, setBeTechs] = useState<TechItem[]>([]);
+  const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
+  const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
+  const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,10 +39,20 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
     // Load dependencies
     Promise.all([
       pb.collection('requesting_areas').getFullList<RequestingArea>({ sort: 'name' }),
-      pb.collection('product_owners').getFullList<ProductOwner>({ sort: 'name' })
-    ]).then(([areasData, ownersData]) => {
+      pb.collection('product_owners').getFullList<ProductOwner>({ sort: 'name' }),
+      pb.collection('frontend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
+      pb.collection('backend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
+      pb.collection('database_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
+      pb.collection('project_types').getFullList<ProjectTypeItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
+      pb.collection('project_statuses').getFullList<ProjectStatusItem>({ sort: 'name', filter: 'active = true' }).catch(() => [])
+    ]).then(([areasData, ownersData, feData, beData, dbData, typesData, statusesData]) => {
       setAreas(areasData);
       setProductOwners(ownersData);
+      setFeTechs(feData);
+      setBeTechs(beData);
+      setDbTechs(dbData);
+      setProjectTypes(typesData);
+      setStatuses(statusesData);
     }).catch(err => console.error('Error loading dependencies:', err));
   }, []);
 
@@ -190,18 +195,18 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                 <div>
                   <label className="block text-sm font-medium mb-2">Tipo de Proyecto</label>
                   <div className="flex flex-wrap gap-2">
-                    {PROJECT_TYPES.map(type => (
+                    {projectTypes.map(type => (
                       <button
-                        key={type}
+                        key={type.id}
                         type="button"
-                        onClick={() => handleMultiSelect('project_type', type)}
+                        onClick={() => handleMultiSelect('project_type', type.id)}
                         className={`px-3 py-1 rounded-full text-xs border ${
-                          (formData.project_type as string[])?.includes(type)
+                          (formData.project_type as string[])?.includes(type.id)
                             ? 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                             : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:border-gray-400'
                         }`}
                       >
-                        {type}
+                        {type.name}
                       </button>
                     ))}
                   </div>
@@ -213,7 +218,8 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                     onChange={e => handleChange('status', e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
                   >
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="">Seleccionar Estado</option>
+                    {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -284,18 +290,18 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
               <div>
                 <label className="block text-sm font-medium mb-2">Frontend</label>
                 <div className="flex flex-wrap gap-2">
-                  {FE_TECHS.map(tech => (
+                  {feTechs.map(tech => (
                     <button
-                      key={tech}
+                      key={tech.id}
                       type="button"
-                      onClick={() => handleMultiSelect('frontend_tech', tech)}
+                      onClick={() => handleMultiSelect('frontend_tech', tech.id)}
                       className={`px-3 py-1 rounded-full text-xs border ${
-                        (formData.frontend_tech as string[])?.includes(tech)
+                        (formData.frontend_tech as string[])?.includes(tech.id)
                           ? 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                           : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:border-gray-400'
                       }`}
                     >
-                      {tech}
+                      {tech.name}
                     </button>
                   ))}
                 </div>
@@ -304,18 +310,18 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
               <div>
                 <label className="block text-sm font-medium mb-2">Backend</label>
                 <div className="flex flex-wrap gap-2">
-                  {BE_TECHS.map(tech => (
+                  {beTechs.map(tech => (
                     <button
-                      key={tech}
+                      key={tech.id}
                       type="button"
-                      onClick={() => handleMultiSelect('backend_tech', tech)}
+                      onClick={() => handleMultiSelect('backend_tech', tech.id)}
                       className={`px-3 py-1 rounded-full text-xs border ${
-                        (formData.backend_tech as string[])?.includes(tech)
+                        (formData.backend_tech as string[])?.includes(tech.id)
                           ? 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                           : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:border-gray-400'
                       }`}
                     >
-                      {tech}
+                      {tech.name}
                     </button>
                   ))}
                 </div>
@@ -324,18 +330,18 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
               <div>
                 <label className="block text-sm font-medium mb-2">Base de Datos</label>
                 <div className="flex flex-wrap gap-2">
-                  {DATABASES.map(tech => (
+                  {dbTechs.map(tech => (
                     <button
-                      key={tech}
+                      key={tech.id}
                       type="button"
-                      onClick={() => handleMultiSelect('database', tech)}
+                      onClick={() => handleMultiSelect('database', tech.id)}
                       className={`px-3 py-1 rounded-full text-xs border ${
-                        (formData.database as string[])?.includes(tech)
+                        (formData.database as string[])?.includes(tech.id)
                           ? 'bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                           : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:border-gray-400'
                       }`}
                     >
-                      {tech}
+                      {tech.name}
                     </button>
                   ))}
                 </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { Project, ProjectStatus } from '@/app/types';
+import { Project, ProjectStatus, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
 import { Plus, Search, Filter, X } from 'lucide-react';
 import Link from 'next/link';
 import CreateProjectWizard from './CreateProjectWizard';
@@ -11,6 +11,8 @@ import CreateProjectWizard from './CreateProjectWizard';
 export default function ProjectList() {
   const { isAdmin } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
+  const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showWizard, setShowWizard] = useState(false);
@@ -26,7 +28,7 @@ export default function ProjectList() {
       setLoading(true);
       const records = await pb.collection('projects').getFullList<Project>({
         sort: '-created',
-        expand: 'requesting_area,product_owner',
+        expand: 'requesting_area,product_owner,status,project_type,frontend_tech',
       });
       setProjects(records);
       setError('');
@@ -44,6 +46,15 @@ export default function ProjectList() {
 
   useEffect(() => {
     fetchProjects();
+
+    // Fetch master data for filters
+    pb.collection('project_statuses').getFullList<ProjectStatusItem>({ sort: 'name', filter: 'active = true' })
+      .then(setStatuses)
+      .catch(console.error);
+
+    pb.collection('project_types').getFullList<ProjectTypeItem>({ sort: 'name', filter: 'active = true' })
+      .then(setProjectTypes)
+      .catch(console.error);
 
     // Subscribe to realtime updates
     pb.collection('projects').subscribe<Project>('*', (e) => {
@@ -151,16 +162,9 @@ export default function ProjectList() {
                     className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                     <option value="">Todos los Estados</option>
-                    <option value="Planificación">Planificación</option>
-                    <option value="Análisis">Análisis</option>
-                    <option value="Diseño">Diseño</option>
-                    <option value="Desarrollo">Desarrollo</option>
-                    <option value="Testing">Testing</option>
-                    <option value="Despliegue">Despliegue</option>
-                    <option value="Producción">Producción</option>
-                    <option value="Mantenimiento">Mantenimiento</option>
-                    <option value="Finalizado">Finalizado</option>
-                    <option value="Suspendido">Suspendido</option>
+                    {statuses.map(status => (
+                        <option key={status.id} value={status.id}>{status.name}</option>
+                    ))}
                 </select>
 
                 <select 
@@ -169,9 +173,9 @@ export default function ProjectList() {
                     className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                     <option value="">Todos los Tipos</option>
-                    <option value="Interno">Interno</option>
-                    <option value="Externo">Externo</option>
-                    <option value="Opensource">Opensource</option>
+                    {projectTypes.map(type => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                    ))}
                 </select>
 
                 {(searchTerm || statusFilter || typeFilter) && (
@@ -241,13 +245,13 @@ export default function ProjectList() {
                                     {project.active === false && <span className="w-2.5 h-2.5 rounded-full bg-gray-300 shrink-0" title="Inactivo"></span>}
                                 </h3>
                                 {project.status && (
-                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 mt-1">{project.status}</span>
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 mt-1">{project.expand?.status?.name || project.status}</span>
                                 )}
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                                {(Array.isArray(project.project_type) ? project.project_type : [project.project_type]).filter(Boolean).map(t => (
-                                    <span key={t} className={`shrink-0 text-xs px-2 py-1 rounded-full ${t === 'Interno' ? 'bg-blue-100 text-blue-800' : t === 'Externo' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
-                                        {t}
+                                {project.expand?.project_type?.map(t => (
+                                    <span key={t.id} className="shrink-0 text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                        {t.name}
                                     </span>
                                 ))}
                             </div>
@@ -277,8 +281,8 @@ export default function ProjectList() {
                         </div>
 
                         <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t dark:border-zinc-700/50">
-                            {project.frontend_tech?.slice(0, 3).map(t => (
-                                <span key={t} className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-[10px] rounded text-zinc-600 dark:text-zinc-300">{t}</span>
+                            {project.expand?.frontend_tech?.slice(0, 3).map(t => (
+                                <span key={t.id} className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-[10px] rounded text-zinc-600 dark:text-zinc-300">{t.name}</span>
                             ))}
                             {(project.frontend_tech?.length || 0) > 3 && (
                                 <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-[10px] rounded text-zinc-600 dark:text-zinc-300">+{project.frontend_tech!.length - 3}</span>

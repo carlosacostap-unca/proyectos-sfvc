@@ -58,7 +58,7 @@ export default function ProjectDetail() {
       try {
         setLoading(true);
         const record = await pb.collection('projects').getOne<Project>(id, {
-          expand: 'requesting_area,product_owner',
+          expand: 'requesting_area,product_owner,frontend_tech,backend_tech,database,status,project_type',
         });
         setProject(record);
       } catch (err: any) {
@@ -160,13 +160,9 @@ export default function ProjectDetail() {
             <div>
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{project.system_name}</h1>
-                {ensureArray(project.project_type).map(type => (
-                  <span key={type} className={`px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide
-                    ${type === 'Interno' ? 'bg-blue-100 text-blue-800' : 
-                      type === 'Externo' ? 'bg-green-100 text-green-800' : 
-                      'bg-purple-100 text-purple-800'}`}
-                  >
-                    {type}
+                {project.expand?.project_type?.map(type => (
+                  <span key={type.id} className="px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                    {type.name}
                   </span>
                 ))}
               </div>
@@ -186,7 +182,7 @@ export default function ProjectDetail() {
                     </span>
                   )}
                   <span className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-zinc-700 font-semibold text-gray-700 dark:text-gray-200 shadow-sm border dark:border-zinc-600">
-                    {project.status}
+                    {project.expand?.status?.name || project.status || "Sin Estado Asignado"}
                   </span>
               </div>
             </div>
@@ -273,10 +269,10 @@ export default function ProjectDetail() {
                     <Layout size={16} /> Frontend
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {ensureArray(project.frontend_tech).length > 0 ? (
-                      ensureArray(project.frontend_tech).map(t => (
-                        <span key={t} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs rounded border border-indigo-100 dark:border-indigo-800">
-                          {t}
+                    {project.expand?.frontend_tech && project.expand.frontend_tech.length > 0 ? (
+                      project.expand.frontend_tech.map(t => (
+                        <span key={t.id} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs rounded border border-indigo-100 dark:border-indigo-800">
+                          {t.name}
                         </span>
                       ))
                     ) : <span className="text-gray-400 text-sm italic">No especificado</span>}
@@ -288,10 +284,10 @@ export default function ProjectDetail() {
                     <Server size={16} /> Backend
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {ensureArray(project.backend_tech).length > 0 ? (
-                      ensureArray(project.backend_tech).map(t => (
-                        <span key={t} className="px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs rounded border border-emerald-100 dark:border-emerald-800">
-                          {t}
+                    {project.expand?.backend_tech && project.expand.backend_tech.length > 0 ? (
+                      project.expand.backend_tech.map(t => (
+                        <span key={t.id} className="px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs rounded border border-emerald-100 dark:border-emerald-800">
+                          {t.name}
                         </span>
                       ))
                     ) : <span className="text-gray-400 text-sm italic">No especificado</span>}
@@ -303,10 +299,10 @@ export default function ProjectDetail() {
                     <Database size={16} /> Base de Datos
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {ensureArray(project.database).length > 0 ? (
-                      ensureArray(project.database).map(t => (
-                        <span key={t} className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs rounded border border-amber-100 dark:border-amber-800">
-                          {t}
+                    {project.expand?.database && project.expand.database.length > 0 ? (
+                      project.expand.database.map(t => (
+                        <span key={t.id} className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs rounded border border-amber-100 dark:border-amber-800">
+                          {t.name}
                         </span>
                       ))
                     ) : <span className="text-gray-400 text-sm italic">No especificado</span>}

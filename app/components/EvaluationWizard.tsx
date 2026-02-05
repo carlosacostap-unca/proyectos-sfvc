@@ -19,18 +19,14 @@ export default function EvaluationWizard({ projectId, evaluationToEdit, onClose,
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0); // 0 to EVALUATION_DIMENSIONS.length - 1
   const [answers, setAnswers] = useState<Record<string, number>>(evaluationToEdit?.answers || {});
-  const [evaluatorName, setEvaluatorName] = useState(evaluationToEdit?.evaluator_name || user?.email || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (evaluationToEdit) {
       setAnswers(evaluationToEdit.answers);
-      setEvaluatorName(evaluationToEdit.evaluator_name || '');
-    } else if (user?.email) {
-      setEvaluatorName(user.email);
     }
-  }, [evaluationToEdit, user]);
+  }, [evaluationToEdit]);
 
   const currentDimension = EVALUATION_DIMENSIONS[currentStep];
   const isLastStep = currentStep === EVALUATION_DIMENSIONS.length - 1;
@@ -63,11 +59,6 @@ export default function EvaluationWizard({ projectId, evaluationToEdit, onClose,
   };
 
   const handleSubmit = async () => {
-    if (!evaluatorName.trim()) {
-      setError('Por favor ingresa tu nombre antes de finalizar.');
-      return;
-    }
-
     try {
       setIsSubmitting(true);
       setError('');
@@ -76,8 +67,7 @@ export default function EvaluationWizard({ projectId, evaluationToEdit, onClose,
 
       const data = {
         project: projectId,
-        user_id: user?.id,
-        evaluator_name: evaluatorName,
+        user: user?.id,
         dimension_scores: dimensionScores,
         answers: answers,
         total_score: totalScore
@@ -189,21 +179,6 @@ export default function EvaluationWizard({ projectId, evaluationToEdit, onClose,
             ))}
           </div>
 
-          {isLastStep && (
-            <div className="pt-6 border-t dark:border-zinc-800">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nombre del Evaluador
-              </label>
-              <input
-                type="text"
-                value={evaluatorName}
-                onChange={(e) => setEvaluatorName(e.target.value)}
-                placeholder="Ingresa tu nombre..."
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-            </div>
-          )}
-
           {error && (
             <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg text-sm">
               <AlertCircle size={16} />
@@ -227,7 +202,7 @@ export default function EvaluationWizard({ projectId, evaluationToEdit, onClose,
           {isLastStep ? (
             <button
               onClick={handleSubmit}
-              disabled={!canProceed || !evaluatorName || isSubmitting}
+              disabled={!canProceed || isSubmitting}
               className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {isSubmitting ? 'Guardando...' : 'Finalizar Evaluación'}
