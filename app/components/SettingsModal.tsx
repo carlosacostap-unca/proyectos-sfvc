@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   X, Plus, Trash2, Check, AlertCircle, Loader2, Edit2, Save, 
   Settings, LayoutGrid, Users, Activity, Tag, 
-  Monitor, Server, Database, ChevronRight, Clock, Briefcase
+  Monitor, Server, Database, ChevronRight, Clock, Briefcase, UserCheck
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ interface SettingsItem {
 
 type SettingsCategory = 
   // Maestros
-  | 'areas' | 'personal' | 'statuses' | 'types' | 'shifts' | 'roles'
+  | 'areas' | 'personal' | 'statuses' | 'staff_statuses' | 'types' | 'shifts' | 'roles'
   // Tecnologías
   | 'frontend' | 'backend' | 'database';
 
@@ -42,6 +42,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case 'areas': return 'requesting_areas';
       case 'personal': return 'personal'; // Handled by PersonalManagement
       case 'statuses': return 'project_statuses';
+      case 'staff_statuses': return 'personal_statuses';
       case 'types': return 'project_types';
       case 'shifts': return 'shifts';
       case 'roles': return 'roles';
@@ -57,6 +58,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case 'areas': return 'Áreas Solicitantes';
       case 'personal': return 'Personal';
       case 'statuses': return 'Estados de Proyecto';
+      case 'staff_statuses': return 'Estados del Personal';
       case 'types': return 'Tipos de Proyecto';
       case 'shifts': return 'Turnos';
       case 'roles': return 'Roles';
@@ -201,6 +203,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <NavItem id="types" icon={Tag} label="Tipos de Proyecto" />
             <NavItem id="shifts" icon={Clock} label="Turnos" />
             <NavItem id="roles" icon={Briefcase} label="Roles" />
+            <NavItem id="staff_statuses" icon={UserCheck} label="Estados del Personal" />
             <NavItem id="frontend" icon={Monitor} label="Frontend" />
             <NavItem id="backend" icon={Server} label="Backend" />
             <NavItem id="database" icon={Database} label="Base de Datos" />

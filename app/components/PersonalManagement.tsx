@@ -4,15 +4,17 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Plus, Trash2, Edit2, Save, X, Search, 
   User, FileText, Phone, Mail, Calendar, 
-  Briefcase, Check, AlertCircle, Upload
+  Briefcase, Check, AlertCircle, Upload, Clock
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Personal, RoleItem } from '@/app/types';
+import { Personal, RoleItem, ShiftItem, StaffStatusItem } from '@/app/types';
 import { toast } from 'sonner';
 
 export default function PersonalManagement() {
   const [personal, setPersonal] = useState<Personal[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [shifts, setShifts] = useState<ShiftItem[]>([]);
+  const [statuses, setStatuses] = useState<StaffStatusItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -20,14 +22,14 @@ export default function PersonalManagement() {
   
   // Form State
   const [formData, setFormData] = useState<Partial<Personal>>({
-    active: true,
+    status: '',
     surname: '',
     name: '',
     dni: '',
     file_number: '',
     email: '',
     phone: '',
-    shift: 'Mañana',
+    shift: [], // Array for multiple selection
     main_role: '',
     secondary_role: '',
     join_date: new Date().toISOString().split('T')[0],
@@ -39,6 +41,8 @@ export default function PersonalManagement() {
   useEffect(() => {
     fetchPersonal();
     fetchRoles();
+    fetchShifts();
+    fetchStatuses();
   }, []);
 
   const fetchRoles = async () => {
@@ -50,7 +54,30 @@ export default function PersonalManagement() {
       setRoles(records);
     } catch (error) {
       console.error('Error fetching roles:', error);
-      // Optional: Fail silently if roles collection doesn't exist yet
+    }
+  };
+
+  const fetchShifts = async () => {
+    try {
+      const records = await pb.collection('shifts').getFullList<ShiftItem>({
+        sort: 'name',
+        filter: 'active = true'
+      });
+      setShifts(records);
+    } catch (error) {
+      console.error('Error fetching shifts:', error);
+    }
+  };
+
+  const fetchStatuses = async () => {
+    try {
+      const records = await pb.collection('personal_statuses').getFullList<StaffStatusItem>({
+        sort: 'name',
+        filter: 'active = true'
+      });
+      setStatuses(records);
+    } catch (error) {
+      console.error('Error fetching statuses:', error);
     }
   };
 
@@ -59,6 +86,7 @@ export default function PersonalManagement() {
     try {
       const records = await pb.collection('personal').getFullList<Personal>({
         sort: 'surname,name',
+        expand: 'main_role,secondary_role,shift,status'
       });
       setPersonal(records);
     } catch (error) {
@@ -71,14 +99,14 @@ export default function PersonalManagement() {
 
   const resetForm = () => {
     setFormData({
-      active: true,
+      status: '',
       surname: '',
       name: '',
       dni: '',
       file_number: '',
       email: '',
       phone: '',
-      shift: 'Mañana',
+      shift: [],
       main_role: '',
       secondary_role: '',
       join_date: new Date().toISOString().split('T')[0],
@@ -118,8 +146,18 @@ export default function PersonalManagement() {
     try {
       const data = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
+        // Skip empty string values for relation fields to avoid 400 Invalid ID error
+        if (value === '' && ['main_role', 'secondary_role', 'status'].includes(key)) {
+          return;
+        }
+
         if (value !== undefined && value !== null) {
-          data.append(key, value.toString());
+          if (Array.isArray(value)) {
+            // Handle array fields (like shift)
+            value.forEach((v) => data.append(key, v));
+          } else {
+            data.append(key, value.toString());
+          }
         }
       });
       
@@ -195,14 +233,16 @@ export default function PersonalManagement() {
                     <h3 className="font-semibold text-gray-900 dark:text-white">
                       {item.surname}, {item.name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.main_role}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {item.expand?.main_role?.name || item.main_role}
+                    </p>
                   </div>
                   <span className={`px-2 py-0.5 text-xs rounded-full ${
-                    item.active 
+                    item.expand?.status?.active 
                       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
                       : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
                   }`}>
-                    {item.active ? 'Activo' : 'Inactivo'}
+                    {item.expand?.status?.name || 'Sin estado'}
                   </span>
                 </div>
                 
@@ -214,6 +254,14 @@ export default function PersonalManagement() {
                   <div className="flex items-center gap-1">
                     <Phone size={12} />
                     {item.phone || '-'}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} />
+                    {item.expand?.shift ? (
+                      Array.isArray(item.expand.shift) 
+                        ? item.expand.shift.map(s => s.name).join(', ') 
+                        : (item.expand.shift as any).name
+                    ) : '-'}
                   </div>
                 </div>
               </div>
@@ -313,66 +361,65 @@ export default function PersonalManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rol Principal</label>
-                  {roles.length > 0 ? (
-                    <select
-                      required
-                      value={formData.main_role}
-                      onChange={(e) => setFormData({...formData, main_role: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                    >
-                      <option value="">Seleccionar Rol</option>
-                      {roles.map(role => (
-                        <option key={role.id} value={role.name}>{role.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      required
-                      value={formData.main_role}
-                      onChange={(e) => setFormData({...formData, main_role: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      placeholder="Ej: Desarrollador"
-                    />
-                  )}
+                  <select
+                    required
+                    value={formData.main_role}
+                    onChange={(e) => setFormData({...formData, main_role: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  >
+                    <option value="">Seleccionar Rol</option>
+                    {roles.map(role => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rol Secundario</label>
-                  {roles.length > 0 ? (
-                    <select
-                      value={formData.secondary_role}
-                      onChange={(e) => setFormData({...formData, secondary_role: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                    >
-                      <option value="">Seleccionar Rol</option>
-                      {roles.map(role => (
-                        <option key={role.id} value={role.name}>{role.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={formData.secondary_role}
-                      onChange={(e) => setFormData({...formData, secondary_role: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      placeholder="Ej: Líder Técnico"
-                    />
-                  )}
+                  <select
+                    value={formData.secondary_role}
+                    onChange={(e) => setFormData({...formData, secondary_role: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  >
+                    <option value="">Seleccionar Rol</option>
+                    {roles.map(role => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Turno</label>
-                  <select
-                    value={formData.shift}
-                    onChange={(e) => setFormData({...formData, shift: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                  >
-                    <option value="Mañana">Mañana</option>
-                    <option value="Tarde">Tarde</option>
-                    <option value="Noche">Noche</option>
-                  </select>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Turno (Selección múltiple)</label>
+                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg min-h-[80px]">
+                    {shifts.map(shift => {
+                      const isSelected = Array.isArray(formData.shift) && formData.shift.includes(shift.id);
+                      return (
+                        <button
+                          key={shift.id}
+                          type="button"
+                          onClick={() => {
+                            const currentShifts = Array.isArray(formData.shift) ? formData.shift : [];
+                            const newShifts = isSelected
+                              ? currentShifts.filter(id => id !== shift.id)
+                              : [...currentShifts, shift.id];
+                            setFormData({...formData, shift: newShifts});
+                          }}
+                          className={`px-3 py-1.5 text-xs rounded-lg border transition-all flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 dark:bg-zinc-900 dark:border-zinc-700 dark:text-gray-400 dark:hover:border-zinc-600'
+                          }`}
+                        >
+                          {isSelected && <Check size={12} className="stroke-[3]" />}
+                          {shift.name}
+                        </button>
+                      );
+                    })}
+                    {shifts.length === 0 && (
+                      <span className="text-xs text-gray-400 italic">No hay turnos disponibles</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Incorporación</label>
@@ -429,14 +476,18 @@ export default function PersonalManagement() {
               </div>
 
               <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="active"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <label htmlFor="active" className="text-sm text-gray-700 dark:text-gray-300">Activo</label>
+                <label className="text-sm text-gray-700 dark:text-gray-300 w-32">Estado</label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  className="flex-1 px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                >
+                  <option value="">Seleccionar Estado</option>
+                  {statuses.map(status => (
+                    <option key={status.id} value={status.id}>{status.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800 mt-4">

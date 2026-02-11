@@ -12,15 +12,21 @@ export interface Personal {
   file_number: string; // Legajo
   email: string;
   phone: string;
-  shift: string;
-  main_role: string;
-  secondary_role: string;
+  shift: string[]; // Relation to shifts (Multiple)
+  main_role: string; // Relation to roles
+  secondary_role: string; // Relation to roles
   join_date: string;
-  active: boolean;
+  status: string; // Relation to personal_statuses
   observations: string;
   cv?: string;
   created: string;
   updated: string;
+  expand?: {
+    shift?: ShiftItem[];
+    main_role?: RoleItem;
+    secondary_role?: RoleItem;
+    status?: StaffStatusItem;
+  };
 }
 
 export interface TechItem {
@@ -53,6 +59,12 @@ export interface RoleItem {
   active: boolean;
 }
 
+export interface StaffStatusItem {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
 export interface ProjectNote {
   id: string;
   project: string; // Relation to projects
@@ -62,6 +74,22 @@ export interface ProjectNote {
   updated: string;
   expand?: {
     user?: User;
+  };
+}
+
+export interface ProjectAssignment {
+  id: string;
+  project: string; // Relation to projects
+  personal: string; // Relation to personal
+  start_date: string; // ISO Date - Fecha de asignación
+  end_date: string; // ISO Date - Fecha de desvinculación
+  roles: string[]; // Relation to roles (Multiple)
+  active: boolean;
+  created: string;
+  updated: string;
+  expand?: {
+    personal?: Personal;
+    roles?: RoleItem[];
   };
 }
 

@@ -27,6 +27,7 @@ import Link from 'next/link';
 import EvaluationSection from '@/app/components/EvaluationSection';
 import EditProjectModal from '@/app/components/EditProjectModal';
 import ProjectNotes from '@/app/components/ProjectNotes';
+import ProjectAssignments from '@/app/components/ProjectAssignments';
 
 // Helper to ensure we handle both arrays and single strings safely
 const ensureArray = (data: any): string[] => {
@@ -244,24 +245,30 @@ export default function ProjectDetail() {
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6 space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-2">
                 <Users size={20} className="text-purple-500" />
-                Equipo y Area
+                Área Solicitante
               </h3>
               
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Area Solicitante</p>
                 <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                   <Briefcase size={16} />
                   <span>{project.expand?.requesting_area?.name || 'No asignada'}</span>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Product Owner</p>
-                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                  <User size={16} />
-                  <span>{project.expand?.personal?.surname}, {project.expand?.personal?.name || 'No asignado'}</span>
-                </div>
-              </div>
+            {/* Servidor / Deploy - Moved here */}
+            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
+                <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-300">
+                    <Globe size={18} /> Servidor / Deploy
+                </h3>
+                {project.server ? (
+                    <div 
+                        className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 break-all"
+                        dangerouslySetInnerHTML={{ __html: project.server }}
+                    />
+                ) : (
+                    <p className="text-gray-400 text-sm italic">No hay información del servidor.</p>
+                )}
             </div>
 
           </div>
@@ -269,6 +276,9 @@ export default function ProjectDetail() {
           {/* Center Column: Tech Stack & Resources */}
           <div className="md:col-span-2 space-y-6">
             
+            {/* Assignments Section */}
+            <ProjectAssignments projectId={project.id} />
+
             {/* Tecnologías */}
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
               <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-4 mb-4">
@@ -325,52 +335,37 @@ export default function ProjectDetail() {
             </div>
 
             {/* Recursos / Enlaces */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
-                    <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-300">
-                        <HardDrive size={18} /> Carpeta Drive
-                    </h3>
-                    {project.drive_folder ? (
-                        <div 
-                            className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 break-all"
-                            dangerouslySetInnerHTML={{ __html: project.drive_folder }}
-                        />
-                    ) : (
-                        <p className="text-gray-400 text-sm italic">No hay carpeta asociada.</p>
-                    )}
-                </div>
-
-                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
-                    <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-300">
-                        <Globe size={18} /> Servidor / Deploy
-                    </h3>
-                    {project.server ? (
-                        <div 
-                            className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 break-all"
-                            dangerouslySetInnerHTML={{ __html: project.server }}
-                        />
-                    ) : (
-                        <p className="text-gray-400 text-sm italic">No hay información del servidor.</p>
-                    )}
-                </div>
-            </div>
-
-            {/* Observaciones */}
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
-              <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-2 mb-4">
-                <FileText size={20} className="text-gray-500" />
-                Observaciones
+              <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-300">
+                <HardDrive size={18} /> Carpeta Drive
               </h3>
-              {project.observations ? (
+              {project.drive_folder ? (
                 <div 
-                  className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400"
-                  dangerouslySetInnerHTML={{ __html: project.observations }}
+                  className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 break-all"
+                  dangerouslySetInnerHTML={{ __html: project.drive_folder }}
                 />
               ) : (
-                <p className="text-gray-400 italic">Sin observaciones registradas.</p>
+                <p className="text-gray-400 text-sm italic">No hay carpeta asociada.</p>
               )}
             </div>
+
           </div>
+        </div>
+
+        {/* Observaciones (Full Width) */}
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-2 mb-4">
+            <FileText size={20} className="text-gray-500" />
+            Observaciones
+          </h3>
+          {project.observations ? (
+            <div 
+              className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400"
+              dangerouslySetInnerHTML={{ __html: project.observations }}
+            />
+          ) : (
+            <p className="text-gray-400 italic">Sin observaciones registradas.</p>
+          )}
         </div>
 
         {/* Notas y Evaluación (Full Width) */}
