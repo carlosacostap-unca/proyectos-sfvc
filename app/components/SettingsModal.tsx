@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   X, Plus, Trash2, Check, AlertCircle, Loader2, Edit2, Save, 
   Settings, LayoutGrid, Users, Activity, Tag, 
-  Monitor, Server, Database, ChevronRight 
+  Monitor, Server, Database, ChevronRight, Clock, Briefcase
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ interface SettingsItem {
 
 type SettingsCategory = 
   // Maestros
-  | 'areas' | 'personal' | 'statuses' | 'types'
+  | 'areas' | 'personal' | 'statuses' | 'types' | 'shifts' | 'roles'
   // Tecnologías
   | 'frontend' | 'backend' | 'database';
 
@@ -43,6 +43,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case 'personal': return 'personal'; // Handled by PersonalManagement
       case 'statuses': return 'project_statuses';
       case 'types': return 'project_types';
+      case 'shifts': return 'shifts';
+      case 'roles': return 'roles';
       // Tecnologías
       case 'frontend': return 'frontend_technologies';
       case 'backend': return 'backend_technologies';
@@ -56,6 +58,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case 'personal': return 'Personal';
       case 'statuses': return 'Estados de Proyecto';
       case 'types': return 'Tipos de Proyecto';
+      case 'shifts': return 'Turnos';
+      case 'roles': return 'Roles';
       case 'frontend': return 'Frontend';
       case 'backend': return 'Backend';
       case 'database': return 'Base de Datos';
@@ -195,6 +199,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <NavItem id="personal" icon={Users} label="Personal" />
             <NavItem id="statuses" icon={Activity} label="Estados" />
             <NavItem id="types" icon={Tag} label="Tipos de Proyecto" />
+            <NavItem id="shifts" icon={Clock} label="Turnos" />
+            <NavItem id="roles" icon={Briefcase} label="Roles" />
             <NavItem id="frontend" icon={Monitor} label="Frontend" />
             <NavItem id="backend" icon={Server} label="Backend" />
             <NavItem id="database" icon={Database} label="Base de Datos" />

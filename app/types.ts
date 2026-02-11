@@ -41,6 +41,30 @@ export interface ProjectTypeItem {
   active: boolean;
 }
 
+export interface ShiftItem {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface RoleItem {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface ProjectNote {
+  id: string;
+  project: string; // Relation to projects
+  user: string; // Relation to users
+  content: string; // HTML/Rich Text
+  created: string;
+  updated: string;
+  expand?: {
+    user?: User;
+  };
+}
+
 export type ProjectStatus = string;
 
 export interface Project {

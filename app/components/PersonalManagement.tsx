@@ -7,11 +7,12 @@ import {
   Briefcase, Check, AlertCircle, Upload
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Personal } from '@/app/types';
+import { Personal, RoleItem } from '@/app/types';
 import { toast } from 'sonner';
 
 export default function PersonalManagement() {
   const [personal, setPersonal] = useState<Personal[]>([]);
+  const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -37,7 +38,21 @@ export default function PersonalManagement() {
 
   useEffect(() => {
     fetchPersonal();
+    fetchRoles();
   }, []);
+
+  const fetchRoles = async () => {
+    try {
+      const records = await pb.collection('roles').getFullList<RoleItem>({
+        sort: 'name',
+        filter: 'active = true'
+      });
+      setRoles(records);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      // Optional: Fail silently if roles collection doesn't exist yet
+    }
+  };
 
   const fetchPersonal = async () => {
     setLoading(true);
@@ -298,22 +313,51 @@ export default function PersonalManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rol Principal</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.main_role}
-                    onChange={(e) => setFormData({...formData, main_role: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                  />
+                  {roles.length > 0 ? (
+                    <select
+                      required
+                      value={formData.main_role}
+                      onChange={(e) => setFormData({...formData, main_role: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                    >
+                      <option value="">Seleccionar Rol</option>
+                      {roles.map(role => (
+                        <option key={role.id} value={role.name}>{role.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={formData.main_role}
+                      onChange={(e) => setFormData({...formData, main_role: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      placeholder="Ej: Desarrollador"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rol Secundario</label>
-                  <input
-                    type="text"
-                    value={formData.secondary_role}
-                    onChange={(e) => setFormData({...formData, secondary_role: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                  />
+                  {roles.length > 0 ? (
+                    <select
+                      value={formData.secondary_role}
+                      onChange={(e) => setFormData({...formData, secondary_role: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                    >
+                      <option value="">Seleccionar Rol</option>
+                      {roles.map(role => (
+                        <option key={role.id} value={role.name}>{role.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.secondary_role}
+                      onChange={(e) => setFormData({...formData, secondary_role: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      placeholder="Ej: Líder Técnico"
+                    />
+                  )}
                 </div>
               </div>
 

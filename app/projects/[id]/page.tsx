@@ -26,6 +26,7 @@ import {
 import Link from 'next/link';
 import EvaluationSection from '@/app/components/EvaluationSection';
 import EditProjectModal from '@/app/components/EditProjectModal';
+import ProjectNotes from '@/app/components/ProjectNotes';
 
 // Helper to ensure we handle both arrays and single strings safely
 const ensureArray = (data: any): string[] => {
@@ -350,22 +351,21 @@ export default function ProjectDetail() {
               </h3>
               {project.observations ? (
                 <div 
-                  className="prose prose-blue dark:prose-invert max-w-none"
+                  className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400"
                   dangerouslySetInnerHTML={{ __html: project.observations }}
                 />
               ) : (
                 <p className="text-gray-400 italic">Sin observaciones registradas.</p>
               )}
             </div>
-
           </div>
         </div>
 
-        {/* Evaluation Section */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
-           <EvaluationSection projectId={project.id} />
+        {/* Notas y Evaluación (Full Width) */}
+        <div className="flex flex-col gap-6">
+          <ProjectNotes projectId={project.id} />
+          <EvaluationSection projectId={project.id} />
         </div>
-
       </div>
 
       {showEditModal && project && (

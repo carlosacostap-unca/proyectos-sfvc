@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Check, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem } from '@/app/types';
+import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem, ShiftItem } from '@/app/types';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -13,7 +13,7 @@ function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
-const SHIFTS = ['Mañana', 'Tarde'];
+const DEFAULT_SHIFTS = ['Mañana', 'Tarde'];
 
 interface WizardProps {
   onClose: () => void;
@@ -27,6 +27,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   const [personal, setPersonal] = useState<Personal[]>([]);
   const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
+  const [shifts, setShifts] = useState<string[]>(DEFAULT_SHIFTS);
   const [feTechs, setFeTechs] = useState<TechItem[]>([]);
   const [beTechs, setBeTechs] = useState<TechItem[]>([]);
   const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
@@ -76,6 +77,16 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     pb.collection('project_types').getFullList<ProjectTypeItem>({ sort: 'name', filter: 'active = true' })
       .then(setProjectTypes)
       .catch(console.error);
+
+    pb.collection('shifts').getFullList<ShiftItem>({ sort: 'name', filter: 'active = true' })
+      .then(items => {
+        if (items.length > 0) {
+          setShifts(items.map(i => i.name));
+        }
+      })
+      .catch(() => {
+        console.log('Using default shifts');
+      });
 
     // Fetch Technologies
     pb.collection('frontend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' })
@@ -240,7 +251,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       description: '¿En qué turno se trabajará?',
       type: 'multiselect',
       field: 'shift',
-      options: SHIFTS,
+      options: shifts,
       validate: () => (formData.shift?.length || 0) > 0,
     },
     {

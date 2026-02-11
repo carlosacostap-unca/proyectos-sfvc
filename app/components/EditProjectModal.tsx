@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
+import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem, ShiftItem } from '@/app/types';
 
 interface Props {
   project: Project;
@@ -12,7 +12,7 @@ interface Props {
 }
 
 // Constants (duplicated from wizard for now)
-const SHIFTS = ['Mañana', 'Tarde'];
+const DEFAULT_SHIFTS = ['Mañana', 'Tarde'];
 
 export default function EditProjectModal({ project, onClose, onSuccess }: Props) {
   const [formData, setFormData] = useState<Partial<Project>>({
@@ -32,6 +32,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
   const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
   const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
+  const [shifts, setShifts] = useState<string[]>(DEFAULT_SHIFTS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -53,7 +54,22 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
       setDbTechs(dbData);
       setProjectTypes(typesData);
       setStatuses(statusesData);
-    }).catch(err => console.error('Error loading dependencies:', err));
+
+      // Fetch Shifts separately
+      pb.collection('shifts').getFullList<ShiftItem>({ sort: 'name', filter: 'active = true' })
+        .then(items => {
+          if (items.length > 0) {
+            setShifts(items.map(i => i.name));
+          }
+        })
+        .catch(() => {
+           console.log('Using default shifts');
+        });
+
+    }).catch(err => {
+      console.error('Error loading data:', err);
+      setError('Error al cargar datos necesarios. Por favor recarga la página.');
+    });
   }, []);
 
   // Auto-calculate end date based on start date and duration
@@ -267,7 +283,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Turno de Desarrollo</label>
                   <div className="flex gap-4">
-                    {SHIFTS.map(shift => (
+                    {shifts.map(shift => (
                       <label key={shift} className="flex items-center gap-2 cursor-pointer">
                         <input 
                           type="checkbox"
