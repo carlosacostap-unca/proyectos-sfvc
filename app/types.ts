@@ -4,10 +4,23 @@ export interface RequestingArea {
   active?: boolean;
 }
 
-export interface ProductOwner {
+export interface Personal {
   id: string;
+  surname: string;
   name: string;
-  active?: boolean;
+  dni: string;
+  file_number: string; // Legajo
+  email: string;
+  phone: string;
+  shift: string;
+  main_role: string;
+  secondary_role: string;
+  join_date: string;
+  active: boolean;
+  observations: string;
+  cv?: string;
+  created: string;
+  updated: string;
 }
 
 export interface TechItem {
@@ -41,7 +54,7 @@ export interface Project {
   status: ProjectStatus; // Relation ID
   start_date: string; // ISO Date
   estimated_end_date: string; // ISO Date
-  product_owner: string; // Relation ID
+  personal: string; // Relation ID to personal collection
   observations: string; // HTML/Rich Text
   drive_folder: string; // URL
   server: string; // HTML/Rich Text
@@ -49,7 +62,7 @@ export interface Project {
 
   expand?: {
     requesting_area?: RequestingArea;
-    product_owner?: ProductOwner;
+    personal?: Personal;
     frontend_tech?: TechItem[];
     backend_tech?: TechItem[];
     database?: TechItem[];
@@ -67,13 +80,25 @@ export interface Project {
   updated: string;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  isAdmin: boolean;
+  active: boolean;
+  created: string;
+  updated: string;
+}
+
 export interface Evaluation {
   id: string;
   project: string; // Relation ID to Project
   user: string; // Relation ID to users collection
   
   expand?: {
-    user?: WhitelistUser; // Expanded user details
+    user?: User; // Expanded user details
   };
   
   // JSON field storing scores per dimension: { 'efficiency': 85, 'citizen_impact': 90 }
@@ -88,14 +113,4 @@ export interface Evaluation {
   updated: string;
 }
 
-export interface WhitelistUser {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  isRegistered?: boolean; // Frontend only flag
-  isAdmin: boolean;
-  active: boolean;
-  created: string;
-  updated: string;
-}
+

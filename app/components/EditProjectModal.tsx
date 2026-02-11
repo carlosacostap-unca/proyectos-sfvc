@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, ProductOwner, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
+import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
 
 interface Props {
   project: Project;
@@ -26,7 +26,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
   });
 
   const [areas, setAreas] = useState<RequestingArea[]>([]);
-  const [productOwners, setProductOwners] = useState<ProductOwner[]>([]);
+  const [personal, setPersonal] = useState<Personal[]>([]);
   const [feTechs, setFeTechs] = useState<TechItem[]>([]);
   const [beTechs, setBeTechs] = useState<TechItem[]>([]);
   const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
@@ -39,15 +39,15 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
     // Load dependencies
     Promise.all([
       pb.collection('requesting_areas').getFullList<RequestingArea>({ sort: 'name' }),
-      pb.collection('product_owners').getFullList<ProductOwner>({ sort: 'name' }),
+      pb.collection('personal').getFullList<Personal>({ sort: 'surname,name', filter: 'active = true' }),
       pb.collection('frontend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('backend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('database_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('project_types').getFullList<ProjectTypeItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('project_statuses').getFullList<ProjectStatusItem>({ sort: 'name', filter: 'active = true' }).catch(() => [])
-    ]).then(([areasData, ownersData, feData, beData, dbData, typesData, statusesData]) => {
+    ]).then(([areasData, personalData, feData, beData, dbData, typesData, statusesData]) => {
       setAreas(areasData);
-      setProductOwners(ownersData);
+      setPersonal(personalData);
       setFeTechs(feData);
       setBeTechs(beData);
       setDbTechs(dbData);
@@ -256,12 +256,12 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                 <div>
                   <label className="block text-sm font-medium mb-1">Product Owner</label>
                   <select 
-                    value={formData.product_owner}
-                    onChange={e => handleChange('product_owner', e.target.value)}
+                    value={formData.personal}
+                    onChange={e => handleChange('personal', e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
                   >
                     <option value="">Seleccionar PO</option>
-                    {productOwners.map(po => <option key={po.id} value={po.id}>{po.name}</option>)}
+                    {personal.map(p => <option key={p.id} value={p.id}>{p.surname}, {p.name}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
@@ -369,7 +369,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                     type="date" 
                     value={formData.start_date ? new Date(formData.start_date).toISOString().split('T')[0] : ''}
                     onChange={e => handleChange('start_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:[color-scheme:dark]"
                   />
                 </div>
                 <div>
@@ -379,7 +379,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                     readOnly
                     tabIndex={-1}
                     value={formData.estimated_end_date ? new Date(formData.estimated_end_date).toISOString().split('T')[0] : ''}
-                    className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-zinc-900/50 dark:border-zinc-800 dark:text-zinc-500"
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-zinc-900/50 dark:border-zinc-800 dark:text-zinc-500 dark:[color-scheme:dark]"
                   />
                 </div>
                 <div>

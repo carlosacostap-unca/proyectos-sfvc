@@ -58,7 +58,8 @@ export const EVALUATION_DIMENSIONS: EvaluationDimension[] = [
       { id: 'sus_2', text: '¿El código está documentado y sigue estándares de calidad?', type: 'likert' },
       { id: 'sus_3', text: '¿Es escalable para soportar un aumento en la carga de trabajo?', type: 'likert' },
       { id: 'sus_4', text: '¿Depende mínimamente de licencias propietarias costosas?', type: 'likert' },
-      { id: 'sus_5', text: '¿Existe capacidad técnica interna para mantenerlo a largo plazo?', type: 'likert' }
+      { id: 'sus_5', text: '¿Existe capacidad técnica interna para mantenerlo a largo plazo?', type: 'likert' },
+      { id: 'sus_6', text: '¿El sistema está desarrollado por el área de modernización?', type: 'boolean' }
     ]
   },
   {

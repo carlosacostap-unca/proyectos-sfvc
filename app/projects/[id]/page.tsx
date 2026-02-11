@@ -58,7 +58,7 @@ export default function ProjectDetail() {
       try {
         setLoading(true);
         const record = await pb.collection('projects').getOne<Project>(id, {
-          expand: 'requesting_area,product_owner,frontend_tech,backend_tech,database,status,project_type',
+          expand: 'requesting_area,personal,frontend_tech,backend_tech,database,status,project_type',
         });
         setProject(record);
       } catch (err: any) {
@@ -246,7 +246,7 @@ export default function ProjectDetail() {
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Product Owner</p>
                 <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                   <User size={16} />
-                  <span>{project.expand?.product_owner?.name || 'No asignado'}</span>
+                  <span>{project.expand?.personal?.surname}, {project.expand?.personal?.name || 'No asignado'}</span>
                 </div>
               </div>
             </div>

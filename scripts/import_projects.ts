@@ -31,8 +31,8 @@ async function main() {
     process.exit(1);
   }
 
-  // 2. Load dependencies (Areas, Product Owners)
-  console.log('🔄 Loading metadata (Areas, Product Owners)...');
+  // 2. Load dependencies (Areas, Personal)
+  console.log('🔄 Loading metadata (Areas, Personal)...');
   
   // Helper to normalize strings for matching
   const normalizeKey = (str: string) => str.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -46,13 +46,18 @@ async function main() {
     console.warn('⚠️ Could not load Requesting Areas. Ensure the collection exists.');
   }
 
-  const poMap = new Map<string, string>(); // Name -> ID
+  const personalMap = new Map<string, string>(); // Name -> ID
   try {
-    const pos = await pb.collection('product_owners').getFullList();
-    pos.forEach(p => poMap.set(normalizeKey(p.name), p.id));
-    console.log(`✅ Loaded ${pos.length} Product Owners.`);
+    const personnel = await pb.collection('personal').getFullList();
+    personnel.forEach(p => {
+        // Try to cover variations in naming convention
+        personalMap.set(normalizeKey(p.name), p.id);
+        personalMap.set(normalizeKey(`${p.name} ${p.surname}`), p.id);
+        personalMap.set(normalizeKey(`${p.surname} ${p.name}`), p.id);
+    });
+    console.log(`✅ Loaded ${personnel.length} Personal records.`);
   } catch (err) {
-    console.warn('⚠️ Could not load Product Owners. Ensure the collection exists.');
+    console.warn('⚠️ Could not load Personal. Ensure the collection exists.');
   }
 
   // 3. Process Projects
@@ -77,8 +82,8 @@ async function main() {
       let poId = '';
       if (p.product_owner_name) {
         const normName = normalizeKey(String(p.product_owner_name));
-        if (poMap.has(normName)) {
-          poId = poMap.get(normName)!;
+        if (personalMap.has(normName)) {
+          poId = personalMap.get(normName)!;
         } else {
            // Create PO if missing? 
            // console.warn(`⚠️ PO not found: "${p.product_owner_name}"`);
@@ -124,7 +129,7 @@ async function main() {
         status: pStatus,
         estimated_duration: p.estimated_duration || 0,
         requesting_area: areaId,
-        product_owner: poId,
+        personal: poId,
         observations: p.observations || '',
         drive_folder: p.drive_folder || '',
         server: p.server || '',

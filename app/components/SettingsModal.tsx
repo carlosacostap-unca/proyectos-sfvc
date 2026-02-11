@@ -7,6 +7,8 @@ import {
 import { pb } from '@/lib/pocketbase';
 import { toast } from 'sonner';
 
+import PersonalManagement from './PersonalManagement';
+
 interface SettingsItem {
   id: string;
   name: string;
@@ -16,7 +18,7 @@ interface SettingsItem {
 
 type SettingsCategory = 
   // Maestros
-  | 'areas' | 'owners' | 'statuses' | 'types'
+  | 'areas' | 'personal' | 'statuses' | 'types'
   // Tecnologías
   | 'frontend' | 'backend' | 'database';
 
@@ -38,7 +40,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     switch (category) {
       // Maestros
       case 'areas': return 'requesting_areas';
-      case 'owners': return 'product_owners';
+      case 'personal': return 'personal'; // Handled by PersonalManagement
       case 'statuses': return 'project_statuses';
       case 'types': return 'project_types';
       // Tecnologías
@@ -51,7 +53,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const getTabLabel = (category: SettingsCategory) => {
     switch (category) {
       case 'areas': return 'Áreas Solicitantes';
-      case 'owners': return 'Product Owners';
+      case 'personal': return 'Personal';
       case 'statuses': return 'Estados de Proyecto';
       case 'types': return 'Tipos de Proyecto';
       case 'frontend': return 'Frontend';
@@ -190,7 +192,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           
           <div className="flex-1 overflow-y-auto p-4 space-y-1">
             <NavItem id="areas" icon={LayoutGrid} label="Áreas Solicitantes" />
-            <NavItem id="owners" icon={Users} label="Product Owners" />
+            <NavItem id="personal" icon={Users} label="Personal" />
             <NavItem id="statuses" icon={Activity} label="Estados" />
             <NavItem id="types" icon={Tag} label="Tipos de Proyecto" />
             <NavItem id="frontend" icon={Monitor} label="Frontend" />
@@ -221,9 +223,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {/* Content Body */}
           <div className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-zinc-900">
-            {/* Add New Form */}
-            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/30 dark:bg-zinc-900/30">
-              <form onSubmit={handleAdd} className="flex gap-3">
+            {activeTab === 'personal' ? (
+              <div className="flex-1 overflow-hidden p-6">
+                <PersonalManagement />
+              </div>
+            ) : (
+              <>
+                {/* Add New Form */}
+                <div className="p-6 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/30 dark:bg-zinc-900/30">
+                  <form onSubmit={handleAdd} className="flex gap-3">
                 <input
                   type="text"
                   value={newItemName}
@@ -335,9 +343,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
-  );
+  </div>
+</div>
+);
 }

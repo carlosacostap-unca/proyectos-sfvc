@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, Users, Database, Settings } from "lucide-react";
 import { pb } from "@/lib/pocketbase";
-import UserWhitelistModal from "./components/UserWhitelistModal";
+import UserManagementModal from "./components/UserManagementModal";
 import SettingsModal from "./components/SettingsModal";
 
 export default function Home() {
@@ -109,7 +109,7 @@ export default function Home() {
       <ProjectList />
 
       {showUserModal && (
-        <UserWhitelistModal onClose={() => setShowUserModal(false)} />
+        <UserManagementModal onClose={() => setShowUserModal(false)} />
       )}
       
       <SettingsModal 

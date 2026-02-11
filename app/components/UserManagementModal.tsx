@@ -1,26 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Edit, Save, Shield, User, Ban, CheckCircle, Users } from 'lucide-react';
+import { X, Plus, Trash2, Edit, Save, Shield, User as UserIcon, Ban, CheckCircle, Users } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { WhitelistUser } from '@/app/types';
+import { User } from '@/app/types';
 import { useAuth } from '@/app/contexts/AuthContext';
 
 interface Props {
   onClose: () => void;
 }
 
-export default function UserWhitelistModal({ onClose }: Props) {
+export default function UserManagementModal({ onClose }: Props) {
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<WhitelistUser[]>([]);
+  
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingUser, setEditingUser] = useState<WhitelistUser | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
     email: '',
-    avatar: '',
+    name: '',
     isAdmin: false,
     active: true
   });
@@ -32,26 +33,8 @@ export default function UserWhitelistModal({ onClose }: Props) {
 
   const fetchUsers = async () => {
     try {
-      const [whitelistRecords, usersRecords] = await Promise.all([
-        pb.collection('whitelist').getFullList<WhitelistUser>({ sort: '-created' }),
-        pb.collection('users').getFullList(),
-      ]);
-
-      // Create a map for fast lookup: email -> userRecord
-      const usersMap = new Map(usersRecords.map(u => [u.email, u]));
-
-      // Merge data
-      const enrichedUsers = whitelistRecords.map(wUser => {
-        const userProfile = usersMap.get(wUser.email);
-        return {
-          ...wUser,
-          name: wUser.name || userProfile?.name || '', // Prefer whitelist name (if edited), then user profile
-          avatar: userProfile?.avatar ? pb.files.getUrl(userProfile, userProfile.avatar) : undefined,
-          isRegistered: !!userProfile, // Flag to check if user exists in 'users' collection
-        };
-      });
-
-      setUsers(enrichedUsers);
+      const records = await pb.collection('users').getFullList<User>({ sort: '-created' });
+      setUsers(records);
     } catch (err) {
       console.error('Error fetching users:', err);
       setError('Error al cargar la lista de usuarios');
@@ -61,7 +44,7 @@ export default function UserWhitelistModal({ onClose }: Props) {
   };
 
   const resetForm = () => {
-    setFormData({ email: '', avatar: '', isAdmin: false, active: true });
+    setFormData({ email: '', name: '', isAdmin: false, active: true });
     setEditingUser(null);
     setIsCreating(false);
     setError('');
@@ -72,17 +55,17 @@ export default function UserWhitelistModal({ onClose }: Props) {
     setIsCreating(true);
   };
 
-  const handleEdit = (user: WhitelistUser) => {
-    // Prevent editing own account
+  const handleEdit = (user: User) => {
+    // Prevent editing own account permissions to avoid locking oneself out
     if (user.email === currentUser?.email) {
-      alert('No puedes editar tu propia cuenta.');
+      alert('No puedes editar tu propia cuenta desde esta pantalla.');
       return;
     }
 
     setEditingUser(user);
     setFormData({
       email: user.email,
-      avatar: user.avatar || '',
+      name: user.name || '',
       isAdmin: user.isAdmin,
       active: user.active
     });
@@ -101,9 +84,25 @@ export default function UserWhitelistModal({ onClose }: Props) {
 
     try {
       if (isCreating) {
-        await pb.collection('whitelist').create(formData);
+        // Create user with random password since they will likely use OAuth or reset it
+        const password = crypto.randomUUID();
+        await pb.collection('users').create({
+          email: formData.email,
+          name: formData.name,
+          password: password,
+          passwordConfirm: password,
+          isAdmin: formData.isAdmin,
+          active: formData.active,
+          emailVisibility: true,
+        });
       } else if (editingUser) {
-        await pb.collection('whitelist').update(editingUser.id, formData);
+        await pb.collection('users').update(editingUser.id, {
+          email: formData.email,
+          name: formData.name,
+          isAdmin: formData.isAdmin,
+          active: formData.active,
+          emailVisibility: true,
+        });
       }
       
       await fetchUsers();
@@ -123,7 +122,7 @@ export default function UserWhitelistModal({ onClose }: Props) {
     if (!confirm(`¿Estás seguro de eliminar al usuario ${email}?`)) return;
 
     try {
-      await pb.collection('whitelist').delete(id);
+      await pb.collection('users').delete(id);
       await fetchUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
@@ -139,10 +138,10 @@ export default function UserWhitelistModal({ onClose }: Props) {
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Users className="text-indigo-600" size={24} />
-              Gestión de Usuarios (Whitelist)
+              Gestión de Usuarios
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Administra quién tiene acceso a la aplicación
+              Administra los usuarios del sistema
             </p>
           </div>
           <button
@@ -157,7 +156,7 @@ export default function UserWhitelistModal({ onClose }: Props) {
           {/* List Section */}
           <div className={`flex-1 overflow-y-auto p-6 ${isCreating || editingUser ? 'hidden md:block' : ''}`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white">Usuarios Registrados</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Usuarios</h3>
               <button
                 onClick={handleCreate}
                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors"
@@ -188,9 +187,9 @@ export default function UserWhitelistModal({ onClose }: Props) {
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden ${u.avatar ? '' : (u.isAdmin ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-gray-400')}`}>
                             {u.avatar ? (
-                              <img src={u.avatar} alt={u.name || u.email} className="w-full h-full object-cover" />
+                              <img src={pb.files.getUrl(u, u.avatar)} alt={u.name || u.email} className="w-full h-full object-cover" />
                             ) : (
-                              u.isAdmin ? <Shield size={18} /> : <User size={18} />
+                              u.isAdmin ? <Shield size={18} /> : <UserIcon size={18} />
                             )}
                           </div>
                           <div>
@@ -204,12 +203,6 @@ export default function UserWhitelistModal({ onClose }: Props) {
                             </p>
                             {u.name && <p className="text-xs text-gray-500">{u.email}</p>}
                             
-                            {!u.isRegistered && (
-                              <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium mt-0.5 flex items-center gap-1">
-                                • Acceso Pendiente
-                              </p>
-                            )}
-
                             <div className="flex items-center gap-2 mt-1">
                               <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${
                                 u.active 
@@ -287,6 +280,19 @@ export default function UserWhitelistModal({ onClose }: Props) {
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-zinc-800 dark:border-zinc-700"
                     placeholder="usuario@ejemplo.com"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-zinc-800 dark:border-zinc-700"
+                    placeholder="Nombre completo"
                   />
                 </div>
 

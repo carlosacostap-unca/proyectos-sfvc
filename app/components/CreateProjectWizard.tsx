@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Check, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, ProductOwner, TechItem, ProjectStatusItem, ProjectTypeItem } from '@/app/types';
+import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem } from '@/app/types';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -24,13 +24,14 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [areas, setAreas] = useState<RequestingArea[]>([]);
-  const [productOwners, setProductOwners] = useState<ProductOwner[]>([]);
+  const [personal, setPersonal] = useState<Personal[]>([]);
   const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
   const [feTechs, setFeTechs] = useState<TechItem[]>([]);
   const [beTechs, setBeTechs] = useState<TechItem[]>([]);
   const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Form State
@@ -48,7 +49,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     estimated_duration: 1,
     start_date: '',
     estimated_end_date: '',
-    product_owner: '',
+    personal: '',
     observations: '',
     drive_folder: '',
     server: '',
@@ -61,9 +62,9 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       .then(setAreas)
       .catch(console.error);
     
-    // Fetch product owners
-    pb.collection('product_owners').getFullList<ProductOwner>({ sort: 'name', filter: 'active = true' })
-      .then(setProductOwners)
+    // Fetch personal
+    pb.collection('personal').getFullList<Personal>({ sort: 'surname,name', filter: 'active = true' })
+      .then(setPersonal)
       .catch(console.error);
 
     // Fetch Statuses
@@ -204,14 +205,14 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       validate: () => !!formData.requesting_area,
     },
     {
-      id: 'product_owner',
-      title: '8. Product Owner',
-      description: '¿Quién es el responsable del producto?',
-      type: 'select',
-      field: 'product_owner',
-      options: productOwners.map(p => ({ label: p.name, value: p.id })),
-      validate: () => !!formData.product_owner,
-    },
+          id: 'personal',
+          title: '8. Product Owner',
+          description: '¿Quién es el responsable del producto?',
+          type: 'select',
+          field: 'personal',
+          options: personal.map(p => ({ label: `${p.surname}, ${p.name}`, value: p.id })),
+          validate: () => !!formData.personal,
+        },
     {
       id: 'type',
       title: '9. Tipo de Proyecto',
@@ -308,6 +309,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     }
 
     if (isValid) {
+      setError('');
       if (currentStep < totalSteps - 1) {
         setDirection(1);
         setCurrentStep(prev => prev + 1);
@@ -315,11 +317,12 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
         handleSubmit();
       }
     } else {
-      alert(errorMessage);
+      setError(errorMessage);
     }
   };
 
   const handlePrev = () => {
+    setError('');
     if (currentStep > 0) {
       setDirection(-1);
       setCurrentStep(prev => prev - 1);
@@ -335,6 +338,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
 
   const updateField = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (error) setError('');
   };
 
   const handleSubmit = async () => {
@@ -458,7 +462,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                   type="date"
                   value={formData.start_date}
                   onChange={(e) => updateField('start_date', e.target.value)}
-                  className="w-full text-xl bg-transparent border border-gray-300 rounded-lg p-3 focus:border-blue-600 outline-none dark:border-zinc-700"
+                  className="w-full text-xl bg-transparent border border-gray-300 rounded-lg p-3 focus:border-blue-600 outline-none dark:border-zinc-700 dark:[color-scheme:dark]"
                 />
              </div>
              <div className="flex-1">
@@ -467,7 +471,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                   type="date"
                   value={formData.estimated_end_date}
                   onChange={(e) => updateField('estimated_end_date', e.target.value)}
-                  className="w-full text-xl bg-transparent border border-gray-300 rounded-lg p-3 focus:border-blue-600 outline-none dark:border-zinc-700"
+                  className="w-full text-xl bg-transparent border border-gray-300 rounded-lg p-3 focus:border-blue-600 outline-none dark:border-zinc-700 dark:[color-scheme:dark]"
                 />
              </div>
           </div>
@@ -562,7 +566,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
 
       case 'multiselect-group':
           return (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl h-[60vh] overflow-y-auto p-2">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl p-2">
                 {question.groups.map((group: any) => (
                    <div key={group.label} className="space-y-3">
                       <h4 className="font-bold text-gray-500 border-b pb-2">{group.label}</h4>
@@ -598,40 +602,101 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
 
       case 'review':
         return (
-           <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-xl p-6 border border-gray-200 dark:border-zinc-700 shadow-sm space-y-4 max-h-[60vh] overflow-y-auto">
+           <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-xl p-6 border border-gray-200 dark:border-zinc-700 shadow-sm space-y-4">
               <h3 className="font-bold text-xl mb-4">Resumen del Proyecto</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                 <div>
+                 <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Nombre</span>
-                    <span className="font-medium">{formData.system_name}</span>
+                    <span className="font-medium">{formData.system_name || '-'}</span>
                  </div>
-                 <div>
+                 <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Código</span>
-                    <span className="font-medium">{formData.code}</span>
+                    <span className="font-medium">{formData.code || '-'}</span>
                  </div>
-                 <div>
+                 
+                 <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Estado</span>
                     <span className="font-medium">
-                        {statuses.find(s => s.id === formData.status)?.name || formData.status}
+                        {statuses.find(s => s.id === formData.status)?.name || formData.status || '-'}
                     </span>
                  </div>
-                 <div>
+                 <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Tipo</span>
                     <span className="font-medium">
-                        {formData.project_type?.map(id => projectTypes.find(t => t.id === id)?.name || id).join(', ')}
+                        {formData.project_type?.map(id => projectTypes.find(t => t.id === id)?.name || id).join(', ') || '-'}
                     </span>
                  </div>
-                 <div>
+
+                 <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Área Solicitante</span>
                     <span className="font-medium">
-                        {areas.find(a => a.id === formData.requesting_area)?.name || '...'}
+                        {areas.find(a => a.id === formData.requesting_area)?.name || '-'}
                     </span>
                  </div>
-                 <div>
+                 <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Product Owner</span>
                     <span className="font-medium">
-                        {productOwners.find(p => p.id === formData.product_owner)?.name || '...'}
+                        {personal.find(p => p.id === formData.personal)?.surname}, {personal.find(p => p.id === formData.personal)?.name}
                     </span>
+                 </div>
+
+                 <div className="col-span-2 md:col-span-1">
+                    <span className="block text-gray-500">Año</span>
+                    <span className="font-medium">{formData.year || '-'}</span>
+                 </div>
+                 <div className="col-span-2 md:col-span-1">
+                    <span className="block text-gray-500">Duración Est.</span>
+                    <span className="font-medium">{formData.estimated_duration ? `${formData.estimated_duration} meses` : '-'}</span>
+                 </div>
+
+                 <div className="col-span-2 md:col-span-1">
+                    <span className="block text-gray-500">Fecha Inicio</span>
+                    <span className="font-medium">{formData.start_date || '-'}</span>
+                 </div>
+                 <div className="col-span-2 md:col-span-1">
+                    <span className="block text-gray-500">Fecha Fin Est.</span>
+                    <span className="font-medium">{formData.estimated_end_date || '-'}</span>
+                 </div>
+
+                 <div className="col-span-2 md:col-span-1">
+                    <span className="block text-gray-500">Activo</span>
+                    <span className="font-medium">{formData.active ? 'Sí' : 'No'}</span>
+                 </div>
+                 <div className="col-span-2 md:col-span-1">
+                    <span className="block text-gray-500">Turno</span>
+                    <span className="font-medium">{formData.shift?.join(', ') || '-'}</span>
+                 </div>
+
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Frontend</span>
+                    <span className="font-medium">
+                      {formData.frontend_tech?.map(id => feTechs.find(t => t.id === id)?.name || id).join(', ') || '-'}
+                    </span>
+                 </div>
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Backend</span>
+                    <span className="font-medium">
+                      {formData.backend_tech?.map(id => beTechs.find(t => t.id === id)?.name || id).join(', ') || '-'}
+                    </span>
+                 </div>
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Base de Datos</span>
+                    <span className="font-medium">
+                      {formData.database?.map(id => dbTechs.find(t => t.id === id)?.name || id).join(', ') || '-'}
+                    </span>
+                 </div>
+
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Carpeta Drive</span>
+                    <span className="font-medium break-all">{formData.drive_folder || '-'}</span>
+                 </div>
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Servidor</span>
+                    <span className="font-medium whitespace-pre-wrap">{formData.server || '-'}</span>
+                 </div>
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Observaciones</span>
+                    <span className="font-medium whitespace-pre-wrap">{formData.observations || '-'}</span>
                  </div>
               </div>
               
@@ -679,31 +744,44 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
          </div>
 
          {/* Question Container */}
-         <div className="flex-1 flex flex-col items-center justify-center relative min-h-[400px]">
-            <AnimatePresence mode="wait" custom={direction}>
-               <motion.div
-                  key={currentStep}
-                  custom={direction}
-                  initial={{ opacity: 0, x: direction * 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: direction * -50 }}
-                  transition={{ duration: 0.3 }}
-                  className="w-full flex flex-col items-center"
-               >
-                  {questions[currentStep].title && (
-                     <h2 className="text-2xl md:text-4xl font-bold text-center mb-2 text-gray-900 dark:text-white">
-                        {questions[currentStep].title}
-                     </h2>
-                  )}
-                  {questions[currentStep].description && (
-                     <p className="text-gray-500 text-center mb-8 text-lg">
-                        {questions[currentStep].description}
-                     </p>
-                  )}
+         <div className="flex-1 w-full overflow-y-auto overflow-x-hidden relative">
+            <div className="min-h-full flex flex-col items-center justify-center py-6 px-4">
+               <AnimatePresence mode="wait" custom={direction}>
+                  <motion.div
+                     key={currentStep}
+                     custom={direction}
+                     initial={{ opacity: 0, x: direction * 50 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     exit={{ opacity: 0, x: direction * -50 }}
+                     transition={{ duration: 0.3 }}
+                     className="w-full flex flex-col items-center"
+                  >
+                     {questions[currentStep].title && (
+                        <h2 className="text-2xl md:text-4xl font-bold text-center mb-2 text-gray-900 dark:text-white">
+                           {questions[currentStep].title}
+                        </h2>
+                     )}
+                     {questions[currentStep].description && (
+                        <p className="text-gray-500 text-center mb-8 text-lg">
+                           {questions[currentStep].description}
+                        </p>
+                     )}
 
-                  {renderField(questions[currentStep])}
-               </motion.div>
-            </AnimatePresence>
+                     {error && (
+                        <motion.div
+                           initial={{ opacity: 0, y: -10 }}
+                           animate={{ opacity: 1, y: 0 }}
+                           className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-center gap-2"
+                        >
+                           <X size={18} />
+                           <span className="font-medium">{error}</span>
+                        </motion.div>
+                     )}
+
+                     {renderField(questions[currentStep])}
+                  </motion.div>
+               </AnimatePresence>
+            </div>
          </div>
 
          {/* Footer Navigation */}

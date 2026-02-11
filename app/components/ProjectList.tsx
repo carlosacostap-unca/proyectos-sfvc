@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Project, ProjectStatus, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
-import { Plus, Search, Filter, X } from 'lucide-react';
+import { Plus, Search, Filter, X, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import CreateProjectWizard from './CreateProjectWizard';
 
@@ -26,9 +26,11 @@ export default function ProjectList() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
+      // Disable auto-cancellation with requestKey: null to prevent race conditions in React StrictMode
       const records = await pb.collection('projects').getFullList<Project>({
         sort: '-created',
-        expand: 'requesting_area,product_owner,status,project_type,frontend_tech',
+        expand: 'requesting_area,personal,status,project_type,frontend_tech',
+        requestKey: null
       });
       setProjects(records);
       setError('');
@@ -36,6 +38,8 @@ export default function ProjectList() {
       console.error('Error fetching projects:', err);
       if (err.status === 404) {
            setError('Projects collection not found. Please create a "projects" collection in PocketBase.');
+      } else if (err.status === 0) {
+           setError('Connection failed. Please check if PocketBase is running.');
       } else {
            setError(err.message || 'Failed to fetch projects');
       }
@@ -114,7 +118,17 @@ export default function ProjectList() {
       {/* Header & Actions */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-zinc-800 p-6 rounded-xl shadow-sm border dark:border-zinc-700">
         <div>
-            <h2 className="text-2xl font-bold">Proyectos</h2>
+            <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold">Proyectos</h2>
+                <button 
+                    onClick={fetchProjects} 
+                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all"
+                    title="Recargar lista"
+                    disabled={loading}
+                >
+                    <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+                </button>
+            </div>
             <p className="text-gray-500">Gestión de proyectos y desarrollos</p>
         </div>
         {isAdmin && (
@@ -205,10 +219,21 @@ export default function ProjectList() {
         {loading ? (
             <div className="text-center py-8 opacity-50">Cargando proyectos...</div>
         ) : error ? (
-            <div className="p-4 border border-red-300 bg-red-50 text-red-700 rounded-md">
-                <h3 className="font-bold">Error de Conexión</h3>
-                <p>{error}</p>
-                <p className="text-sm mt-2">Asegúrate de que PocketBase esté corriendo y la colección "projects" exista.</p>
+            <div className="p-6 border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800/30 text-red-700 dark:text-red-400 rounded-xl flex flex-col items-start gap-4">
+                <div>
+                    <h3 className="font-bold text-lg mb-1">Error de Conexión</h3>
+                    <p className="mb-2">{error}</p>
+                    <p className="text-sm opacity-80">
+                        Esto puede deberse a problemas de red o a que el servidor de PocketBase no está accesible.
+                    </p>
+                </div>
+                <button 
+                    onClick={fetchProjects}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shadow-sm font-medium"
+                >
+                    <RefreshCw size={16} />
+                    Reintentar
+                </button>
             </div>
         ) : projects.length === 0 ? (
             <div className="text-center py-20 bg-gray-50 dark:bg-zinc-900 rounded-lg border border-dashed border-gray-300 dark:border-zinc-700">
@@ -268,10 +293,12 @@ export default function ProjectList() {
                                     <span className="text-left sm:text-right truncate sm:ml-2 max-w-full sm:max-w-[150px]">{project.expand.requesting_area.name}</span>
                                 </p>
                             )}
-                            {project.expand?.product_owner && (
+                            {project.expand?.personal && (
                                 <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                                    <span className="text-gray-400 font-medium">PO:</span> 
-                                    <span className="text-left sm:text-right truncate sm:ml-2 max-w-full sm:max-w-[150px]">{project.expand.product_owner.name}</span>
+                                    <span className="text-gray-400 font-medium">Líder:</span> 
+                                    <span className="text-left sm:text-right truncate sm:ml-2 max-w-full sm:max-w-[150px]">
+                                        {project.expand.personal.surname}, {project.expand.personal.name}
+                                    </span>
                                 </p>
                             )}
                             <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
