@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   X, Plus, Trash2, Check, AlertCircle, Loader2, Edit2, Save, 
   Settings, LayoutGrid, Users, Activity, Tag, 
-  Monitor, Server, Database, ChevronRight, Clock, Briefcase, UserCheck
+  Monitor, Server, Database, ChevronRight, Clock, Briefcase, UserCheck, Milestone, Flag
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ interface SettingsItem {
 
 type SettingsCategory = 
   // Maestros
-  | 'areas' | 'personal' | 'statuses' | 'staff_statuses' | 'types' | 'shifts' | 'roles'
+  | 'areas' | 'personal' | 'statuses' | 'staff_statuses' | 'types' | 'shifts' | 'roles' | 'phases' | 'phase_statuses'
   // Tecnologías
   | 'frontend' | 'backend' | 'database';
 
@@ -46,6 +46,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case 'types': return 'project_types';
       case 'shifts': return 'shifts';
       case 'roles': return 'roles';
+      case 'phases': return 'project_phases';
+      case 'phase_statuses': return 'phase_statuses';
       // Tecnologías
       case 'frontend': return 'frontend_technologies';
       case 'backend': return 'backend_technologies';
@@ -62,6 +64,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case 'types': return 'Tipos de Proyecto';
       case 'shifts': return 'Turnos';
       case 'roles': return 'Roles';
+      case 'phases': return 'Fases';
+      case 'phase_statuses': return 'Estados de Fase';
       case 'frontend': return 'Frontend';
       case 'backend': return 'Backend';
       case 'database': return 'Base de Datos';
@@ -201,6 +205,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <NavItem id="personal" icon={Users} label="Personal" />
             <NavItem id="statuses" icon={Activity} label="Estados" />
             <NavItem id="types" icon={Tag} label="Tipos de Proyecto" />
+            <NavItem id="phases" icon={Milestone} label="Fases" />
+            <NavItem id="phase_statuses" icon={Flag} label="Estados de Fase" />
             <NavItem id="shifts" icon={Clock} label="Turnos" />
             <NavItem id="roles" icon={Briefcase} label="Roles" />
             <NavItem id="staff_statuses" icon={UserCheck} label="Estados del Personal" />

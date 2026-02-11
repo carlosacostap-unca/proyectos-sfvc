@@ -110,7 +110,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
       start_date: startDate,
       end_date: endDate,
       roles: item.roles,
-      active: item.active
+      active: item.active ?? true
     });
     setEditingId(item.id);
     setIsEditing(true);
@@ -132,12 +132,19 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prepare data for PocketBase
+    const dataToSend = {
+      ...formData,
+      // Ensure empty strings are sent as null for optional date fields
+      end_date: formData.end_date ? formData.end_date : null,
+    };
+
     try {
       if (editingId) {
-        await pb.collection('project_assignments').update(editingId, formData);
+        await pb.collection('project_assignments').update(editingId, dataToSend);
         toast.success('Asignación actualizada correctamente');
       } else {
-        await pb.collection('project_assignments').create(formData);
+        await pb.collection('project_assignments').create(dataToSend);
         toast.success('Asignación creada correctamente');
       }
       
@@ -145,6 +152,10 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
       fetchAssignments();
     } catch (error: any) {
       console.error('Error saving assignment:', error);
+      // Log detailed validation errors if available
+      if (error.data && error.data.data) {
+        console.error('Validation errors:', error.data.data);
+      }
       toast.error(`Error al guardar: ${error.message}`);
     }
   };

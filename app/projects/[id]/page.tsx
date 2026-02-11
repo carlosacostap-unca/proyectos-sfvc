@@ -28,6 +28,7 @@ import EvaluationSection from '@/app/components/EvaluationSection';
 import EditProjectModal from '@/app/components/EditProjectModal';
 import ProjectNotes from '@/app/components/ProjectNotes';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
+import ProjectPhases from '@/app/components/ProjectPhases';
 
 // Helper to ensure we handle both arrays and single strings safely
 const ensureArray = (data: any): string[] => {
@@ -97,7 +98,12 @@ export default function ProjectDetail() {
 
     return () => {
         if (isSubscribed) {
-            pb.collection('projects').unsubscribe(id).catch(console.error);
+            pb.collection('projects').unsubscribe(id).catch((err) => {
+                // Ignore 404/client_id errors during cleanup as they are non-critical
+                if (err?.status !== 404) {
+                    console.error('Unsubscribe error:', err);
+                }
+            });
         }
     };
   }, [id, user]);
@@ -271,6 +277,24 @@ export default function ProjectDetail() {
                 )}
             </div>
 
+            {/* Tecnologías - Moved here */}
+
+
+            {/* Recursos / Enlaces - Moved here */}
+            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
+              <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-300">
+                <HardDrive size={18} /> Carpeta Drive
+              </h3>
+              {project.drive_folder ? (
+                <div 
+                  className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 break-all"
+                  dangerouslySetInnerHTML={{ __html: project.drive_folder }}
+                />
+              ) : (
+                <p className="text-gray-400 text-sm italic">No hay carpeta asociada.</p>
+              )}
+            </div>
+
           </div>
 
           {/* Center Column: Tech Stack & Resources */}
@@ -278,6 +302,7 @@ export default function ProjectDetail() {
             
             {/* Assignments Section */}
             <ProjectAssignments projectId={project.id} />
+            <ProjectPhases projectId={project.id} />
 
             {/* Tecnologías */}
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
@@ -332,21 +357,6 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Recursos / Enlaces */}
-            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
-              <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-300">
-                <HardDrive size={18} /> Carpeta Drive
-              </h3>
-              {project.drive_folder ? (
-                <div 
-                  className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 break-all"
-                  dangerouslySetInnerHTML={{ __html: project.drive_folder }}
-                />
-              ) : (
-                <p className="text-gray-400 text-sm italic">No hay carpeta asociada.</p>
-              )}
             </div>
 
           </div>

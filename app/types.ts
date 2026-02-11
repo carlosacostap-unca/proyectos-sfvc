@@ -47,6 +47,38 @@ export interface ProjectTypeItem {
   active: boolean;
 }
 
+export interface PhaseItem {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface PhaseStatusItem {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface ProjectTimelineItem {
+  id: string;
+  project: string; // Relation to projects
+  phase: string; // Relation to project_phases
+  planned_start_date: string; // ISO Date
+  real_start_date: string; // ISO Date
+  planned_end_date: string; // ISO Date
+  real_end_date: string; // ISO Date
+  status: string; // Relation to phase_statuses
+  responsible: string; // Relation to personal
+  observations: string;
+  created: string;
+  updated: string;
+  expand?: {
+    phase?: PhaseItem;
+    status?: PhaseStatusItem;
+    responsible?: Personal;
+  };
+}
+
 export interface ShiftItem {
   id: string;
   name: string;
