@@ -82,7 +82,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = async () => {
     setLoading(true);
     try {
-      const authData = await pb.collection('users').authWithOAuth2({ provider: 'google' });
+      // Create a unique requestKey for this auth attempt to prevent cancellations
+      const requestKey = `auth_${Date.now()}`;
+      const authData = await pb.collection('users').authWithOAuth2({ 
+        provider: 'google',
+        requestKey 
+      });
       const model = authData.record;
       
       if (!model) throw new Error('No user record found');

@@ -61,14 +61,26 @@ export default function ProjectList() {
       .catch(console.error);
 
     // Subscribe to realtime updates
-    pb.collection('projects').subscribe<Project>('*', (e) => {
-        if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
-            fetchProjects();
+    let isSubscribed = false;
+    const setupSubscription = async () => {
+        try {
+            await pb.collection('projects').subscribe<Project>('*', (e) => {
+                if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
+                    fetchProjects();
+                }
+            });
+            isSubscribed = true;
+        } catch (err) {
+            console.error('Realtime projects subscription error:', err);
         }
-    });
+    };
+
+    setupSubscription();
 
     return () => {
-        pb.collection('projects').unsubscribe('*');
+        if (isSubscribed) {
+            pb.collection('projects').unsubscribe('*').catch(console.error);
+        }
     };
   }, []);
 

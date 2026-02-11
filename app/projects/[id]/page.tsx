@@ -73,21 +73,33 @@ export default function ProjectDetail() {
     fetchProject();
 
     // Subscribe to realtime updates for this specific project
-    pb.collection('projects').subscribe<Project>(id, (e) => {
-        if (e.action === 'update') {
-             // We can optimistically update the state or re-fetch
-             // Re-fetching ensures we get all expanded relations correctly
-             fetchProject();
-        } else if (e.action === 'delete') {
-            setError('El proyecto ha sido eliminado.');
-            setProject(null);
+    let isSubscribed = false;
+    const setupSubscription = async () => {
+        try {
+            await pb.collection('projects').subscribe<Project>(id, (e) => {
+                if (e.action === 'update') {
+                    // We can optimistically update the state or re-fetch
+                    // Re-fetching ensures we get all expanded relations correctly
+                    fetchProject();
+                } else if (e.action === 'delete') {
+                    setError('El proyecto ha sido eliminado.');
+                    setProject(null);
+                }
+            });
+            isSubscribed = true;
+        } catch (err) {
+            console.error('Realtime project subscription error:', err);
         }
-    });
+    };
+
+    setupSubscription();
 
     return () => {
-        pb.collection('projects').unsubscribe(id);
+        if (isSubscribed) {
+            pb.collection('projects').unsubscribe(id).catch(console.error);
+        }
     };
-  }, [id]);
+  }, [id, user]);
 
   const handleDelete = async () => {
     if (!project || !confirm('¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.')) return;

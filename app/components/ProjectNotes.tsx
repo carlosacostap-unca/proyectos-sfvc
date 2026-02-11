@@ -27,25 +27,41 @@ export default function ProjectNotes({ projectId }: Props) {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    if (!user) return; // Only subscribe if user is logged in
+
     fetchNotes();
 
     // Subscribe to realtime updates
-    pb.collection('project_notes').subscribe<ProjectNote>('*', (e) => {
-      if (e.record.project === projectId) {
-        if (e.action === 'create') {
-          fetchNotes(); // Refresh to get expanded user
-        } else if (e.action === 'delete') {
-          setNotes(prev => prev.filter(n => n.id !== e.record.id));
-        } else if (e.action === 'update') {
-            fetchNotes();
-        }
+    // Using a try-catch for the subscription as it might fail if the connection is not ready
+    let isSubscribed = false;
+    
+    const setupSubscription = async () => {
+      try {
+        await pb.collection('project_notes').subscribe<ProjectNote>('*', (e) => {
+          if (e.record.project === projectId) {
+            if (e.action === 'create') {
+              fetchNotes(); // Refresh to get expanded user
+            } else if (e.action === 'delete') {
+              setNotes(prev => prev.filter(n => n.id !== e.record.id));
+            } else if (e.action === 'update') {
+                fetchNotes();
+            }
+          }
+        });
+        isSubscribed = true;
+      } catch (err) {
+        console.error('Realtime subscription error:', err);
       }
-    });
+    };
+
+    setupSubscription();
 
     return () => {
-      pb.collection('project_notes').unsubscribe('*');
+      if (isSubscribed) {
+        pb.collection('project_notes').unsubscribe('*').catch(console.error);
+      }
     };
-  }, [projectId]);
+  }, [projectId, user]);
 
   const fetchNotes = async () => {
     try {
