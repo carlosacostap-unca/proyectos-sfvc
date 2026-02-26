@@ -20,6 +20,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState<Partial<ProjectAssignment>>({
     project: projectId,
@@ -84,6 +85,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
       roles: [],
       active: true
     });
+    setSearchTerm('');
     setIsEditing(false);
     setEditingId(null);
   };
@@ -95,6 +97,9 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
   };
 
   const handleEdit = (item: ProjectAssignment) => {
+    // Prevent event propagation
+    // e.preventDefault(); // Removed because it's not passed
+    
     // Extract YYYY-MM-DD from the UTC timestamp string (safe for 'T' or space separator)
     const startDate = item.start_date && item.start_date.length >= 10 
       ? item.start_date.substring(0, 10) 
@@ -109,15 +114,24 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
       personal: item.personal,
       start_date: startDate,
       end_date: endDate,
-      roles: item.roles,
+      roles: Array.isArray(item.roles) ? item.roles : (item.roles ? [item.roles] : []),
       active: item.active ?? true
     });
+    
+    // Find personal name for search term
+    const person = personalList.find(p => p.id === item.personal);
+    if (person) {
+      setSearchTerm(`${person.surname}, ${person.name}`);
+    } else {
+      setSearchTerm('');
+    }
+
     setEditingId(item.id);
     setIsEditing(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar esta asignación?')) return;
+    if (!window.confirm('¿Estás seguro de eliminar esta asignación?')) return;
     
     try {
       await pb.collection('project_assignments').delete(id);
@@ -129,9 +143,19 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent | React.KeyboardEvent) => {
     e.preventDefault();
     
+    // Manual validation since we are not using a form element anymore (to avoid nesting)
+    if (!formData.personal) {
+      toast.error('Debes seleccionar una persona');
+      return;
+    }
+    if (!formData.start_date) {
+      toast.error('La fecha de inicio es obligatoria');
+      return;
+    }
+
     // Prepare data for PocketBase
     const dataToSend = {
       ...formData,
@@ -193,23 +217,86 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div 
+               onKeyDown={(e) => {
+                 if (e.key === 'Enter') {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   handleSubmit(e);
+                 }
+               }} 
+               className="space-y-4"
+             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Personal</label>
-                  <select
-                    required
-                    value={formData.personal}
-                    onChange={(e) => setFormData({...formData, personal: e.target.value})}
-                    className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                  >
-                    <option value="">Seleccionar Personal</option>
-                    {personalList.map(person => (
-                      <option key={person.id} value={person.id}>
-                        {person.surname}, {person.name}
-                      </option>
-                    ))}
-                  </select>
+                  
+                  {/* Custom Combobox for Personal */}
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Buscar y seleccionar personal..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          // Clear selection if user types
+                          if (formData.personal && !personalList.find(p => `${p.surname}, ${p.name}` === e.target.value)) {
+                             // Keep ID but allow search... or clear? 
+                             // Better to let them search. If they pick one, it updates.
+                          }
+                        }}
+                        onFocus={() => setSearchTerm(searchTerm || '')}
+                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white placeholder:text-gray-400"
+                      />
+                      {formData.personal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({...formData, personal: ''});
+                            setSearchTerm('');
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Dropdown Results */}
+                    {searchTerm && !formData.personal && (
+                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg max-h-60 overflow-y-auto custom-scrollbar">
+                        {personalList
+                          .filter(person => {
+                            const fullName = `${person.surname}, ${person.name}`.toLowerCase();
+                            return fullName.includes(searchTerm.toLowerCase());
+                          })
+                          .map(person => (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, personal: person.id});
+                                setSearchTerm(`${person.surname}, ${person.name}`);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700 flex items-center gap-2"
+                            >
+                              <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-xs font-medium shrink-0">
+                                {person.name[0]}{person.surname[0]}
+                              </div>
+                              <span>{person.surname}, {person.name}</span>
+                            </button>
+                          ))
+                        }
+                        {personalList.filter(p => `${p.surname}, ${p.name}`.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                          <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                            No se encontraron resultados
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -289,14 +376,15 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
                   Cancelar
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmit}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   <Save size={16} />
                   Guardar Asignación
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         )}
 
@@ -355,14 +443,24 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
 
                   <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => handleEdit(item)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleEdit(item);
+                      }}
                       className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                       title="Editar"
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(item.id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
                       className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title="Eliminar"
                     >

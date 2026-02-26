@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import EvaluationSection from '@/app/components/EvaluationSection';
-import EditProjectModal from '@/app/components/EditProjectModal';
 import ProjectNotes from '@/app/components/ProjectNotes';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
 import ProjectPhases from '@/app/components/ProjectPhases';
@@ -46,7 +45,6 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -156,13 +154,13 @@ export default function ProjectDetail() {
 
           {isAdmin && (
             <div className="flex items-center gap-3 self-end sm:self-auto">
-              <button
-                onClick={() => setShowEditModal(true)}
+              <Link
+                href={`/projects/${project.id}/edit`}
                 className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-200"
               >
                 <Edit size={16} />
                 Editar
-              </button>
+              </Link>
               <button
                 onClick={handleDelete}
                 className="flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-400"
@@ -384,18 +382,6 @@ export default function ProjectDetail() {
           <EvaluationSection projectId={project.id} />
         </div>
       </div>
-
-      {showEditModal && project && (
-        <EditProjectModal 
-          project={project} 
-          onClose={() => setShowEditModal(false)} 
-          onSuccess={() => {
-            setShowEditModal(false);
-            // Realtime subscription will auto-update the UI, or we could refetch here manually if we prefer
-            // fetchProject(); // Not needed if realtime is active, but safe to have implicit via state update from realtime
-          }} 
-        />
-      )}
     </div>
   );
 }
