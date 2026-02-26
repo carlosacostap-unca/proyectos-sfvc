@@ -1,6 +1,7 @@
 'use client';
 
 import ProjectList from "./components/ProjectList";
+import WelcomeScreen from "./components/WelcomeScreen";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -106,7 +107,11 @@ export default function Home() {
         </div>
       </div>
 
-      <ProjectList />
+      {isAdmin ? (
+        <ProjectList />
+      ) : (
+        <WelcomeScreen user={user} />
+      )}
 
       {showUserModal && (
         <UserManagementModal onClose={() => setShowUserModal(false)} />

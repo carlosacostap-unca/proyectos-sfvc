@@ -197,4 +197,18 @@ export interface Evaluation {
   updated: string;
 }
 
+export interface WorkLog {
+  id: string;
+  personal: string; // Relation to personal
+  project?: string; // Relation to projects (Optional)
+  date: string; // ISO Date YYYY-MM-DD
+  hours: number;
+  description?: string;
+  created: string;
+  updated: string;
+  expand?: {
+    project?: Project;
+  };
+}
+
 
