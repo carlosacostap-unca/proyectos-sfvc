@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
-import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit } from 'lucide-react';
+import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface TimeTrackingProps {
   userEmail: string;
@@ -18,6 +18,12 @@ interface ProjectTimeEntry {
   description?: string;
 }
 
+interface GroupedLog {
+  date: string;
+  totalHours: number;
+  logs: WorkLog[];
+}
+
 export default function TimeTracking({ userEmail }: TimeTrackingProps) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [personalId, setPersonalId] = useState<string | null>(null);
@@ -30,8 +36,9 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
   
   // New state for history view
   const [viewMode, setViewMode] = useState<'daily' | 'history'>('daily');
-  const [historyLogs, setHistoryLogs] = useState<WorkLog[]>([]);
+  const [groupedHistory, setGroupedHistory] = useState<GroupedLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   // Initialize: Find personal record and assignments
   useEffect(() => {
@@ -158,18 +165,47 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
     
     try {
       setLoadingHistory(true);
-      const logs = await pb.collection('work_logs').getList<WorkLog>(1, 50, {
+      const logs = await pb.collection('work_logs').getList<WorkLog>(1, 100, {
         filter: `personal = "${personalId}"`,
         sort: '-date,-created',
         expand: 'project',
       });
-      setHistoryLogs(logs.items);
+      
+      // Group logs by date
+      const grouped: Record<string, WorkLog[]> = {};
+      logs.items.forEach(log => {
+        const d = log.date.split('T')[0];
+        if (!grouped[d]) grouped[d] = [];
+        grouped[d].push(log);
+      });
+
+      const groupedList: GroupedLog[] = Object.keys(grouped).map(dateKey => {
+        const dayLogs = grouped[dateKey];
+        const total = dayLogs.reduce((acc, curr) => acc + curr.hours, 0);
+        return {
+          date: dateKey,
+          totalHours: total,
+          logs: dayLogs
+        };
+      }).sort((a, b) => b.date.localeCompare(a.date));
+
+      setGroupedHistory(groupedList);
     } catch (err) {
       console.error('Error fetching history:', err);
       // Silent error or simple notification in UI
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const toggleDateExpand = (dateKey: string) => {
+    const newExpanded = new Set(expandedDates);
+    if (newExpanded.has(dateKey)) {
+        newExpanded.delete(dateKey);
+    } else {
+        newExpanded.add(dateKey);
+    }
+    setExpandedDates(newExpanded);
   };
 
   useEffect(() => {
@@ -469,60 +505,103 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
         </>
         ) : (
             <div className="p-6">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-800/50">
-                            <tr>
-                                <th className="px-4 py-3 rounded-l-lg">Fecha</th>
-                                <th className="px-4 py-3">Proyecto</th>
-                                <th className="px-4 py-3 text-center">Horas</th>
-                                <th className="px-4 py-3">Descripción</th>
-                                <th className="px-4 py-3 rounded-r-lg text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-                            {loadingHistory ? (
-                                <tr>
-                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                        <Loader2 className="animate-spin inline-block mr-2" size={16} />
-                                        Cargando historial...
-                                    </td>
-                                </tr>
-                            ) : historyLogs.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                        No hay registros de horas encontrados.
-                                    </td>
-                                </tr>
-                            ) : (
-                                historyLogs.map((log) => (
-                                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                                            {new Date(log.date).toLocaleDateString()}
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                            {log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Sin Proyecto / General'}
-                                        </td>
-                                        <td className="px-4 py-3 text-center font-semibold text-indigo-600 dark:text-indigo-400">
-                                            {log.hours}
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                                            {log.description || '-'}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
+                <div className="space-y-4">
+                    {loadingHistory ? (
+                        <div className="text-center py-8 text-gray-500">
+                            <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                            Cargando historial...
+                        </div>
+                    ) : groupedHistory.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                            No hay registros de horas encontrados.
+                        </div>
+                    ) : (
+                        groupedHistory.map((group) => {
+                            const isExpanded = expandedDates.has(group.date);
+                            const formattedDate = new Date(group.date + 'T00:00:00').toLocaleDateString();
+
+                            return (
+                                <div key={group.date} className="border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                                    {/* Date Header Row */}
+                                    <div 
+                                        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors ${isExpanded ? 'bg-gray-50 dark:bg-zinc-800/30' : ''}`}
+                                        onClick={() => toggleDateExpand(group.date)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-1 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                                                {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                    {formattedDate}
+                                                </h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {group.logs.length} registro{group.logs.length !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <span className="block text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                                                    {group.totalHours}h
+                                                </span>
+                                                <span className="text-xs text-gray-500">Total</span>
+                                            </div>
                                             <button 
-                                                onClick={() => switchToDaily(log.date.split('T')[0])}
-                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-md transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    switchToDaily(group.date);
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                                title="Editar día completo"
                                             >
-                                                <Edit size={12} />
-                                                Editar
+                                                <Edit size={18} />
                                             </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Details */}
+                                    {isExpanded && (
+                                        <div className="border-t border-gray-100 dark:border-zinc-800">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 dark:bg-zinc-800/30">
+                                                    <tr>
+                                                        <th className="px-4 py-2 pl-12">Proyecto</th>
+                                                        <th className="px-4 py-2 text-center">Horas</th>
+                                                        <th className="px-4 py-2">Descripción</th>
+                                                        <th className="px-4 py-2 text-right">Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/50">
+                                                    {group.logs.map((log) => (
+                                                        <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                            <td className="px-4 py-3 pl-12 text-gray-700 dark:text-gray-300">
+                                                                {log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Sin Proyecto / General'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center font-medium text-gray-900 dark:text-white">
+                                                                {log.hours}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                                                                {log.description || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                <button 
+                                                                    onClick={() => switchToDaily(group.date)}
+                                                                    className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 text-xs font-medium hover:underline"
+                                                                >
+                                                                    Editar
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             </div>
         )}
