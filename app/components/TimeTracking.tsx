@@ -174,9 +174,17 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
       // Group logs by date
       const grouped: Record<string, WorkLog[]> = {};
       logs.items.forEach(log => {
-        const d = log.date.split('T')[0];
-        if (!grouped[d]) grouped[d] = [];
-        grouped[d].push(log);
+        // Handle various date formats safely
+        let d = '';
+        if (log.date) {
+            // Extract YYYY-MM-DD regardless of time component or separator
+            d = log.date.substring(0, 10);
+        }
+        
+        if (d && d.length === 10) {
+            if (!grouped[d]) grouped[d] = [];
+            grouped[d].push(log);
+        }
       });
 
       const groupedList: GroupedLog[] = Object.keys(grouped).map(dateKey => {
@@ -518,7 +526,11 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
                     ) : (
                         groupedHistory.map((group) => {
                             const isExpanded = expandedDates.has(group.date);
-                            const formattedDate = new Date(group.date + 'T00:00:00').toLocaleDateString();
+                            // Safely parse YYYY-MM-DD to avoid timezone issues or Invalid Date
+                            const [y, m, d] = group.date.split('-').map(Number);
+                            const formattedDate = (!isNaN(y) && !isNaN(m) && !isNaN(d)) 
+                                ? new Date(y, m - 1, d).toLocaleDateString()
+                                : group.date;
 
                             return (
                                 <div key={group.date} className="border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
