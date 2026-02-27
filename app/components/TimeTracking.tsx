@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
-import { toast } from 'sonner';
-import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit } from 'lucide-react';
 
 interface TimeTrackingProps {
   userEmail: string;
@@ -26,7 +25,13 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [projectList, setProjectList] = useState<Array<{id: string, name: string, assignmentId: string}>>([]);
+  
+  // New state for history view
+  const [viewMode, setViewMode] = useState<'daily' | 'history'>('daily');
+  const [historyLogs, setHistoryLogs] = useState<WorkLog[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Initialize: Find personal record and assignments
   useEffect(() => {
@@ -147,6 +152,32 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
     }
   }, [date, personalId]); // specific dependency on date
 
+  // Fetch history logs
+  const fetchHistory = async () => {
+    if (!personalId) return;
+    
+    try {
+      setLoadingHistory(true);
+      const logs = await pb.collection('work_logs').getList<WorkLog>(1, 50, {
+        filter: `personal = "${personalId}"`,
+        sort: '-date,-created',
+        expand: 'project',
+      });
+      setHistoryLogs(logs.items);
+    } catch (err) {
+      console.error('Error fetching history:', err);
+      // Silent error or simple notification in UI
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === 'history' && personalId) {
+        fetchHistory();
+    }
+  }, [viewMode, personalId]);
+
   const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string}>) => {
     try {
       setLoading(true);
@@ -199,7 +230,7 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
 
     } catch (err) {
       console.error('Error loading logs:', err);
-      toast.error('Error al cargar las horas registradas');
+      // Removed toast.error
     } finally {
       setLoading(false);
     }
@@ -223,6 +254,7 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
 
     try {
       setSaving(true);
+      setSuccessMessage(null);
       
       const promises = entries.map(async (entry) => {
         // Only save if hours > 0 or if there was a log before (to update to 0 or delete?)
@@ -274,14 +306,20 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
       // Re-loading logs is safer to ensure sync.
       await loadLogsForDate(personalId, date, projectList);
       
-      toast.success('Horas guardadas correctamente');
+      setSuccessMessage('Horas guardadas correctamente');
+      setTimeout(() => setSuccessMessage(null), 3000);
 
     } catch (err: any) {
       console.error('Error saving logs:', err);
-      toast.error('Error al guardar: ' + (err.message || 'Verifique conexión'));
+      // Removed toast.error, could show inline error state
     } finally {
       setSaving(false);
     }
+  };
+
+  const switchToDaily = (targetDate: string) => {
+      setDate(targetDate);
+      setViewMode('daily');
   };
 
   if (loading && entries.length === 0) {
@@ -318,86 +356,176 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
               </p>
             </div>
             
-            <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
-              <Calendar size={18} className="text-gray-500 ml-2" />
-              <input 
-                type="date" 
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-gray-700 dark:text-gray-200 text-sm font-medium"
-              />
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => setViewMode('daily')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewMode === 'daily' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800'}`}
+                >
+                    Diario
+                </button>
+                <button 
+                    onClick={() => setViewMode('history')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewMode === 'history' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800'}`}
+                >
+                    Historial
+                </button>
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-            {entries.length === 0 ? (
-                <div className="text-center py-10 text-gray-500">
-                    <p>No tienes asignaciones activas para registrar horas.</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
-                        <div className="col-span-5 md:col-span-4">Proyecto</div>
-                        <div className="col-span-3 md:col-span-2 text-center">Horas</div>
-                        <div className="col-span-4 md:col-span-6">Descripción (Opcional)</div>
+        {/* Content based on View Mode */}
+        {viewMode === 'daily' ? (
+        <>
+            <div className="px-6 pt-4">
+                 <div className="flex items-center justify-end gap-2">
+                    <span className="text-sm text-gray-500">Fecha:</span>
+                    <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
+                        <Calendar size={18} className="text-gray-500 ml-2" />
+                        <input 
+                            type="date" 
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className="bg-transparent border-none focus:ring-0 text-gray-700 dark:text-gray-200 text-sm font-medium"
+                        />
                     </div>
-                    
-                    {entries.map((entry, index) => (
-                        <div key={entry.assignmentId} className="grid grid-cols-12 gap-4 items-center bg-gray-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
-                            <div className="col-span-5 md:col-span-4">
-                                <span className="font-medium text-gray-800 dark:text-gray-200 block truncate" title={entry.projectName}>
-                                    {entry.projectName}
-                                </span>
-                            </div>
-                            <div className="col-span-3 md:col-span-2">
-                                <input 
-                                    type="number" 
-                                    min="0" 
-                                    max="24" 
-                                    step="0.5"
-                                    value={entry.hours || ''}
-                                    placeholder="0"
-                                    onChange={(e) => handleHourChange(index, e.target.value)}
-                                    className="w-full text-center bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                />
-                            </div>
-                            <div className="col-span-4 md:col-span-6">
-                                <input 
-                                    type="text" 
-                                    value={entry.description || ''}
-                                    placeholder="Detalle de tareas..."
-                                    onChange={(e) => handleDescriptionChange(index, e.target.value)}
-                                    className="w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+                 </div>
+            </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 flex justify-end">
-            <button
-                onClick={handleSave}
-                disabled={saving || entries.length === 0}
-                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-            >
-                {saving ? (
-                    <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Guardando...
-                    </>
+            <div className="p-6">
+                {entries.length === 0 ? (
+                    <div className="text-center py-10 text-gray-500">
+                        <p>No tienes asignaciones activas para registrar horas.</p>
+                    </div>
                 ) : (
-                    <>
-                        <Save size={18} />
-                        Guardar Registros
-                    </>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                            <div className="col-span-5 md:col-span-4">Proyecto</div>
+                            <div className="col-span-3 md:col-span-2 text-center">Horas</div>
+                            <div className="col-span-4 md:col-span-6">Descripción (Opcional)</div>
+                        </div>
+                        
+                        {entries.map((entry, index) => (
+                            <div key={entry.assignmentId} className="grid grid-cols-12 gap-4 items-center bg-gray-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                                <div className="col-span-5 md:col-span-4">
+                                    <span className="font-medium text-gray-800 dark:text-gray-200 block truncate" title={entry.projectName}>
+                                        {entry.projectName}
+                                    </span>
+                                </div>
+                                <div className="col-span-3 md:col-span-2">
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        max="24" 
+                                        step="0.5"
+                                        value={entry.hours || ''}
+                                        placeholder="0"
+                                        onChange={(e) => handleHourChange(index, e.target.value)}
+                                        className="w-full text-center bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    />
+                                </div>
+                                <div className="col-span-4 md:col-span-6">
+                                    <input 
+                                        type="text" 
+                                        value={entry.description || ''}
+                                        placeholder="Detalle de tareas..."
+                                        onChange={(e) => handleDescriptionChange(index, e.target.value)}
+                                        className="w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 )}
-            </button>
-        </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 flex justify-between items-center">
+                <div>
+                    {successMessage && (
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium animate-fade-in">
+                            <CheckCircle2 size={18} />
+                            {successMessage}
+                        </div>
+                    )}
+                </div>
+                <button
+                    onClick={handleSave}
+                    disabled={saving || entries.length === 0}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                >
+                    {saving ? (
+                        <>
+                            <Loader2 size={18} className="animate-spin" />
+                            Guardando...
+                        </>
+                    ) : (
+                        <>
+                            <Save size={18} />
+                            Guardar Registros
+                        </>
+                    )}
+                </button>
+            </div>
+        </>
+        ) : (
+            <div className="p-6">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-800/50">
+                            <tr>
+                                <th className="px-4 py-3 rounded-l-lg">Fecha</th>
+                                <th className="px-4 py-3">Proyecto</th>
+                                <th className="px-4 py-3 text-center">Horas</th>
+                                <th className="px-4 py-3">Descripción</th>
+                                <th className="px-4 py-3 rounded-r-lg text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+                            {loadingHistory ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                        <Loader2 className="animate-spin inline-block mr-2" size={16} />
+                                        Cargando historial...
+                                    </td>
+                                </tr>
+                            ) : historyLogs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                        No hay registros de horas encontrados.
+                                    </td>
+                                </tr>
+                            ) : (
+                                historyLogs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                            {new Date(log.date).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                            {log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Sin Proyecto / General'}
+                                        </td>
+                                        <td className="px-4 py-3 text-center font-semibold text-indigo-600 dark:text-indigo-400">
+                                            {log.hours}
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                                            {log.description || '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button 
+                                                onClick={() => switchToDaily(log.date.split('T')[0])}
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-md transition-colors"
+                                            >
+                                                <Edit size={12} />
+                                                Editar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );
