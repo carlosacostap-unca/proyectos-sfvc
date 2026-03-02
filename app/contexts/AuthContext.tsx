@@ -26,27 +26,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Check if user is active
     // We access the properties directly from the model record
-    if (model.active === false) { // Explicit check for false, assuming default might be true or undefined
-      console.warn('User is inactive, redirecting to login...');
-      pb.authStore.clear();
-      setUser(null);
-      setIsAdmin(false);
-      router.push('/login?error=inactive');
-      return false;
-    }
+    // Only for 'users' collection (skip for superusers/admins)
+    if (model.collectionName === 'users') {
+        if (model.active === false) { // Explicit check for false
+          console.warn('User is inactive, redirecting to login...');
+          pb.authStore.clear();
+          setUser(null);
+          setIsAdmin(false);
+          router.push('/login?error=inactive');
+          return false;
+        }
 
-    // Ensure emailVisibility is true for the user
-    // This handles both new logins and session restorations
-    if (!model.emailVisibility) {
-      try {
-        await pb.collection('users').update(model.id, { emailVisibility: true });
-        // The update will trigger a store change, which calls this function again with the updated model
-      } catch (err) {
-        console.warn('Could not update emailVisibility. Ensure API Rules allow users to update their own record.', err);
-      }
+        // Ensure emailVisibility is true for the user
+        if (!model.emailVisibility) {
+          try {
+            await pb.collection('users').update(model.id, { emailVisibility: true });
+          } catch (err) {
+            console.warn('Could not update emailVisibility.', err);
+          }
+        }
+        
+        setIsAdmin(!!model.isAdmin);
+    } else if (model.collectionName === '_superusers') {
+        // Superusers are always admins and don't have 'active'/'emailVisibility' fields in 'users' collection
+        setIsAdmin(true);
     }
     
-    setIsAdmin(!!model.isAdmin);
     return true;
   };
 
@@ -59,7 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Refresh the auth token to ensure it's valid on the server
-      await pb.collection('users').authRefresh();
+      const model = pb.authStore.model;
+      if (model?.collectionName === 'users') {
+         await pb.collection('users').authRefresh();
+      } else if (model?.collectionName === '_superusers') {
+         await pb.collection('_superusers').authRefresh();
+      }
       // Note: authRefresh updates the store, which triggers the onChange listener below
     } catch (err: any) {
       // Only clear auth if it's explicitly an auth error (401/403)
