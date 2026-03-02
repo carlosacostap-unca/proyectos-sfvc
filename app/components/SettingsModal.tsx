@@ -108,9 +108,22 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       toast.success('Elemento agregado correctamente');
       fetchItems();
     } catch (error: any) {
-      console.error('Error adding item:', error);
-      toast.error(`Error al agregar: ${error.message}`);
-    } finally {
+            console.error('Error adding item:', error);
+            let msg = error.message;
+            
+            // Handle detailed validation errors from PocketBase
+            if (error.data?.data && Object.keys(error.data.data).length > 0) {
+                msg = Object.entries(error.data.data)
+                  .map(([k, v]: [string, any]) => `${k}: ${v.message}`)
+                  .join(', ');
+            } else if (error.status === 400) {
+                msg = 'Error de validación (400). Verifica que la colección permita crear registros y que los datos sean válidos.';
+            } else if (error.status === 403) {
+                msg = 'No tienes permisos para realizar esta acción. Verifica las API Rules de la colección.';
+            }
+            
+            toast.error(`Error al agregar: ${msg}`);
+          } finally {
       setIsAdding(false);
     }
   };

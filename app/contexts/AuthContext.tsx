@@ -50,19 +50,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const revalidateSession = async () => {
+    // Check if the token is valid (not expired) locally first
+    if (!pb.authStore.isValid) {
+      pb.authStore.clear();
+      return;
+    }
+
+    try {
+      // Refresh the auth token to ensure it's valid on the server
+      await pb.collection('users').authRefresh();
+      // Note: authRefresh updates the store, which triggers the onChange listener below
+    } catch (err: any) {
+      // Only clear auth if it's explicitly an auth error (401/403)
+      if (err.status === 401 || err.status === 403) {
+          console.warn('Session expired during revalidation:', err);
+          pb.authStore.clear();
+      } else {
+          console.warn('Revalidation skipped due to network/other error:', err);
+          // Keep the local session for offline capability or retry later
+      }
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
-      const model = pb.authStore.model;
-      setUser(model);
-      
-      if (model) {
-        await checkUserRole(model);
-      }
-      
+      await revalidateSession();
       setLoading(false);
     };
 
     initAuth();
+
+    // Revalidate session when user returns to the tab/window
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            revalidateSession();
+        }
+    };
+    
+    const handleFocus = () => {
+        revalidateSession();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     // Subscribe to auth changes
     const unsubscribe = pb.authStore.onChange(async (token, model) => {
@@ -76,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       unsubscribe();
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 

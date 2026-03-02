@@ -38,8 +38,15 @@ export default function ProjectList() {
       console.error('Error fetching projects:', err);
       if (err.status === 404) {
            setError('Projects collection not found. Please create a "projects" collection in PocketBase.');
-      } else if (err.status === 0) {
-           setError('Connection failed. Please check if PocketBase is running.');
+      } else if (err.status === 0) { // Auto-cancellation or network error
+           // Don't show error for cancellations, but show for network failure
+           if (err.message !== 'The request was autocancelled') {
+               setError('Connection failed. Please check if PocketBase is running.');
+           }
+      } else if (err.status === 401 || err.status === 403) {
+           // Token expired or invalid
+           setError('Tu sesión ha expirado. Por favor, recarga la página o inicia sesión nuevamente.');
+           // Optionally redirect to login, but showing a message is safer for now
       } else {
            setError(err.message || 'Failed to fetch projects');
       }
@@ -240,11 +247,11 @@ export default function ProjectList() {
                     </p>
                 </div>
                 <button 
-                    onClick={fetchProjects}
+                    onClick={error.includes('sesión') ? () => window.location.reload() : fetchProjects}
                     className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shadow-sm font-medium"
                 >
                     <RefreshCw size={16} />
-                    Reintentar
+                    {error.includes('sesión') ? 'Recargar Página' : 'Reintentar'}
                 </button>
             </div>
         ) : projects.length === 0 ? (

@@ -181,7 +181,8 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
             d = log.date.substring(0, 10);
         }
         
-        if (d && d.length === 10) {
+        // Ensure valid date string
+        if (d && d.length === 10 && !isNaN(Date.parse(d))) {
             if (!grouped[d]) grouped[d] = [];
             grouped[d].push(log);
         }
@@ -526,11 +527,30 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
                     ) : (
                         groupedHistory.map((group) => {
                             const isExpanded = expandedDates.has(group.date);
-                            // Safely parse YYYY-MM-DD to avoid timezone issues or Invalid Date
-                            const [y, m, d] = group.date.split('-').map(Number);
-                            const formattedDate = (!isNaN(y) && !isNaN(m) && !isNaN(d)) 
-                                ? new Date(y, m - 1, d).toLocaleDateString()
-                                : group.date;
+                            
+                            // Safely parse YYYY-MM-DD
+                            let formattedDate = group.date;
+                            try {
+                                const [y, m, d] = group.date.split('-').map(Number);
+                                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                                    // Create date treating the string as local components
+                                    const dateObj = new Date(y, m - 1, d);
+                                    // Verify valid date object
+                                    if (!isNaN(dateObj.getTime())) {
+                                        formattedDate = dateObj.toLocaleDateString('es-ES', {
+                                            weekday: 'long',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        });
+                                        // Capitalize first letter
+                                        formattedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Date formatting error:', e);
+                                // Fallback to original string
+                            }
 
                             return (
                                 <div key={group.date} className="border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
