@@ -7,6 +7,7 @@ import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, Arr
 
 interface TimeTrackingProps {
   userEmail: string;
+  isAdmin?: boolean;
 }
 
 interface ProjectTimeEntry {
@@ -24,7 +25,7 @@ interface GroupedLog {
   logs: WorkLog[];
 }
 
-export default function TimeTracking({ userEmail }: TimeTrackingProps) {
+export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackingProps) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [personalId, setPersonalId] = useState<string | null>(null);
   const [entries, setEntries] = useState<ProjectTimeEntry[]>([]);
@@ -47,20 +48,44 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
     let current = new Date();
     let count = 0;
     
+    // Restriction date: March 2, 2026
+    const restrictionDate = new Date('2026-03-02');
+    restrictionDate.setHours(0, 0, 0, 0);
+
+    // Normalize current date to start of day for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Use current iteration date
+    let iterDate = new Date(current);
+
     while (count < 10) {
-      const day = current.getDay();
+      const day = iterDate.getDay();
+      
+      // Check restriction for non-admins
+      const compareDate = new Date(iterDate);
+      compareDate.setHours(0, 0, 0, 0);
+
+      if (!isAdmin && compareDate < restrictionDate) {
+        break;
+      }
+
       if (day !== 0 && day !== 6) { // Skip Sunday (0) and Saturday (6)
-        days.push(current.toISOString().split('T')[0]);
+        // Use local date string construction to avoid timezone issues with toISOString at 00:00
+        const year = iterDate.getFullYear();
+        const month = String(iterDate.getMonth() + 1).padStart(2, '0');
+        const d = String(iterDate.getDate()).padStart(2, '0');
+        days.push(`${year}-${month}-${d}`);
         count++;
       }
-      current.setDate(current.getDate() - 1);
+      iterDate.setDate(iterDate.getDate() - 1);
     }
     return days;
   };
 
   useEffect(() => {
     setWorkingDays(getLast10WorkingDays());
-  }, []);
+  }, [isAdmin]);
 
   // Initialize: Find personal record and assignments
   useEffect(() => {

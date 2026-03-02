@@ -30,7 +30,7 @@ export default function WelcomeScreen({ user }: WelcomeScreenProps) {
 
       {user?.email && (
         <div className="w-full mt-12 animate-slide-up">
-            <TimeTracking userEmail={user.email} />
+            <TimeTracking userEmail={user.email} isAdmin={isAdmin} />
         </div>
       )}
     </div>
