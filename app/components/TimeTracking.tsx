@@ -35,10 +35,32 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
   const [projectList, setProjectList] = useState<Array<{id: string, name: string, assignmentId: string}>>([]);
   
   // New state for history view
-  const [viewMode, setViewMode] = useState<'daily' | 'history'>('daily');
+  const [isEditing, setIsEditing] = useState(false); // Replaces viewMode
   const [groupedHistory, setGroupedHistory] = useState<GroupedLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
+
+  // Helper to get last 10 working days
+  const getLast10WorkingDays = () => {
+    const days = [];
+    let current = new Date();
+    let count = 0;
+    
+    while (count < 10) {
+      const day = current.getDay();
+      if (day !== 0 && day !== 6) { // Skip Sunday (0) and Saturday (6)
+        days.push(current.toISOString().split('T')[0]);
+        count++;
+      }
+      current.setDate(current.getDate() - 1);
+    }
+    return days;
+  };
+
+  useEffect(() => {
+    setWorkingDays(getLast10WorkingDays());
+  }, []);
 
   // Initialize: Find personal record and assignments
   useEffect(() => {
@@ -154,19 +176,24 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
 
   // When date changes, reload logs
   useEffect(() => {
-    if (personalId && projectList.length > 0) {
+    if (personalId && projectList.length > 0 && isEditing) {
       loadLogsForDate(personalId, date, projectList);
     }
-  }, [date, personalId]); // specific dependency on date
+  }, [date, personalId, isEditing]); // specific dependency on date
 
-  // Fetch history logs
+  // Fetch history logs for last 10 working days
   const fetchHistory = async () => {
-    if (!personalId) return;
+    if (!personalId || workingDays.length === 0) return;
     
     try {
       setLoadingHistory(true);
-      const logs = await pb.collection('work_logs').getList<WorkLog>(1, 100, {
-        filter: `personal = "${personalId}"`,
+      // We need to fetch logs for the range covered by workingDays
+      // workingDays is sorted descending (latest first)
+      const endDate = workingDays[0]; // Today or last working day
+      const startDate = workingDays[workingDays.length - 1]; // 10th working day back
+
+      const logs = await pb.collection('work_logs').getList<WorkLog>(1, 200, {
+        filter: `personal = "${personalId}" && date >= "${startDate} 00:00:00" && date <= "${endDate} 23:59:59"`,
         sort: '-date,-created',
         expand: 'project',
       });
@@ -188,17 +215,18 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
         }
       });
 
-      const groupedList: GroupedLog[] = Object.keys(grouped).map(dateKey => {
-        const dayLogs = grouped[dateKey];
+      // Map working days to grouped logs (even if empty)
+      const historyList: GroupedLog[] = workingDays.map(day => {
+        const dayLogs = grouped[day] || [];
         const total = dayLogs.reduce((acc, curr) => acc + curr.hours, 0);
         return {
-          date: dateKey,
+          date: day,
           totalHours: total,
           logs: dayLogs
         };
-      }).sort((a, b) => b.date.localeCompare(a.date));
+      });
 
-      setGroupedHistory(groupedList);
+      setGroupedHistory(historyList);
     } catch (err) {
       console.error('Error fetching history:', err);
       // Silent error or simple notification in UI
@@ -218,10 +246,10 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
   };
 
   useEffect(() => {
-    if (viewMode === 'history' && personalId) {
+    if (!isEditing && personalId && workingDays.length > 0) {
         fetchHistory();
     }
-  }, [viewMode, personalId]);
+  }, [isEditing, personalId, workingDays]);
 
   const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string}>) => {
     try {
@@ -364,7 +392,11 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
 
   const switchToDaily = (targetDate: string) => {
       setDate(targetDate);
-      setViewMode('daily');
+      setIsEditing(true);
+  };
+
+  const handleBackToHistory = () => {
+      setIsEditing(false);
   };
 
   if (loading && entries.length === 0) {
@@ -397,41 +429,33 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
                 Registro de Horas
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Carga tus horas de trabajo diarias por proyecto
+                {isEditing ? 'Carga tus horas de trabajo para el día seleccionado' : 'Visualiza los últimos 10 días laborales'}
               </p>
             </div>
             
-            <div className="flex gap-2">
+            {isEditing && (
                 <button 
-                    onClick={() => setViewMode('daily')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewMode === 'daily' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800'}`}
+                    onClick={handleBackToHistory}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
                 >
-                    Diario
+                    <ArrowLeft size={16} />
+                    Volver
                 </button>
-                <button 
-                    onClick={() => setViewMode('history')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewMode === 'history' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800'}`}
-                >
-                    Historial
-                </button>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Content based on View Mode */}
-        {viewMode === 'daily' ? (
+        {isEditing ? (
         <>
             <div className="px-6 pt-4">
                  <div className="flex items-center justify-end gap-2">
                     <span className="text-sm text-gray-500">Fecha:</span>
                     <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
                         <Calendar size={18} className="text-gray-500 ml-2" />
-                        <input 
-                            type="date" 
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            className="bg-transparent border-none focus:ring-0 text-gray-700 dark:text-gray-200 text-sm font-medium"
-                        />
+                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium px-2">
+                            {new Date(date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
                     </div>
                  </div>
             </div>
@@ -443,39 +467,43 @@ export default function TimeTracking({ userEmail }: TimeTrackingProps) {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <div className="grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
-                            <div className="col-span-5 md:col-span-4">Proyecto</div>
-                            <div className="col-span-3 md:col-span-2 text-center">Horas</div>
-                            <div className="col-span-4 md:col-span-6">Descripción (Opcional)</div>
+                        <div className="hidden md:grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                            <div className="col-span-4">Proyecto</div>
+                            <div className="col-span-2 text-center">Horas</div>
+                            <div className="col-span-6">Descripción (Opcional)</div>
                         </div>
                         
                         {entries.map((entry, index) => (
-                            <div key={entry.assignmentId} className="grid grid-cols-12 gap-4 items-center bg-gray-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
-                                <div className="col-span-5 md:col-span-4">
+                            <div key={entry.assignmentId} className="flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 items-start md:items-center bg-gray-50 dark:bg-zinc-800/50 p-4 md:p-3 rounded-xl border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors shadow-sm md:shadow-none">
+                                <div className="w-full md:col-span-4">
                                     <span className="font-medium text-gray-800 dark:text-gray-200 block truncate" title={entry.projectName}>
                                         {entry.projectName}
                                     </span>
                                 </div>
-                                <div className="col-span-3 md:col-span-2">
-                                    <input 
-                                        type="number" 
-                                        min="0" 
-                                        max="24" 
-                                        step="0.5"
-                                        value={entry.hours || ''}
-                                        placeholder="0"
-                                        onChange={(e) => handleHourChange(index, e.target.value)}
-                                        className="w-full text-center bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    />
-                                </div>
-                                <div className="col-span-4 md:col-span-6">
-                                    <input 
-                                        type="text" 
-                                        value={entry.description || ''}
-                                        placeholder="Detalle de tareas..."
-                                        onChange={(e) => handleDescriptionChange(index, e.target.value)}
-                                        className="w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    />
+                                <div className="flex flex-row md:contents w-full gap-3">
+                                    <div className="w-24 md:w-auto md:col-span-2 relative">
+                                        <span className="md:hidden text-[10px] text-gray-400 absolute -top-2 left-1 bg-gray-50 dark:bg-zinc-800 px-1">Horas</span>
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            max="24" 
+                                            step="0.5"
+                                            value={entry.hours || ''}
+                                            placeholder="0"
+                                            onChange={(e) => handleHourChange(index, e.target.value)}
+                                            className="w-full text-center bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-2 md:py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <div className="flex-1 md:col-span-6 relative">
+                                        <span className="md:hidden text-[10px] text-gray-400 absolute -top-2 left-1 bg-gray-50 dark:bg-zinc-800 px-1">Descripción</span>
+                                        <input 
+                                            type="text" 
+                                            value={entry.description || ''}
+                                            placeholder="Detalle de tareas..."
+                                            onChange={(e) => handleDescriptionChange(index, e.target.value)}
+                                            className="w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-2 md:py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         ))}
