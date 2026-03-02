@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Project, ProjectStatus, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
@@ -16,6 +16,7 @@ export default function ProjectList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showWizard, setShowWizard] = useState(false);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,7 +74,13 @@ export default function ProjectList() {
         try {
             await pb.collection('projects').subscribe<Project>('*', (e) => {
                 if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
-                    fetchProjects();
+                    // Debounce fetch to prevent excessive API calls during bulk operations
+                    if (fetchTimeoutRef.current) {
+                        clearTimeout(fetchTimeoutRef.current);
+                    }
+                    fetchTimeoutRef.current = setTimeout(() => {
+                        fetchProjects();
+                    }, 1000); // Wait 1 second after last event
                 }
             });
             isSubscribed = true;
@@ -85,6 +92,9 @@ export default function ProjectList() {
     setupSubscription();
 
     return () => {
+        if (fetchTimeoutRef.current) {
+            clearTimeout(fetchTimeoutRef.current);
+        }
         if (isSubscribed) {
             pb.collection('projects').unsubscribe('*').catch(console.error);
         }

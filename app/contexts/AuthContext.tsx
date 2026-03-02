@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { AuthModel } from 'pocketbase';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const lastRevalidationRef = useRef<number>(0);
 
   const checkUserRole = async (model: AuthModel) => {
     if (!model) return false;
@@ -56,6 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const revalidateSession = async () => {
+    // Prevent excessive revalidation (throttle to once every 5 seconds)
+    const now = Date.now();
+    if (now - lastRevalidationRef.current < 5000) {
+        return;
+    }
+    lastRevalidationRef.current = now;
+
     // Check if the token is valid (not expired) locally first
     if (!pb.authStore.isValid) {
       pb.authStore.clear();

@@ -72,8 +72,13 @@ export default function AdminProjectCleanup({ onBack }: AdminProjectCleanupProps
         setDeleting(true);
         try {
             const ids = Array.from(selectedIds);
-            // Execute deletions in parallel
-            await Promise.all(ids.map(id => pb.collection('projects').delete(id)));
+            
+            // Execute deletions in batches to prevent server overload
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                const batch = ids.slice(i, i + BATCH_SIZE);
+                await Promise.all(batch.map(id => pb.collection('projects').delete(id)));
+            }
             
             // Refresh list
             await fetchProjects();
