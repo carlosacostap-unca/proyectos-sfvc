@@ -2,10 +2,11 @@
 
 import ProjectList from "./components/ProjectList";
 import WelcomeScreen from "./components/WelcomeScreen";
+import AdminWorkLogs from "./components/AdminWorkLogs";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Users, Database, Settings } from "lucide-react";
+import { LogOut, Users, Settings, Clock } from "lucide-react";
 import { pb } from "@/lib/pocketbase";
 import UserManagementModal from "./components/UserManagementModal";
 import SettingsModal from "./components/SettingsModal";
@@ -15,6 +16,7 @@ export default function Home() {
   const router = useRouter();
   const [showUserModal, setShowUserModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'projects' | 'worklogs'>('projects');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -77,6 +79,15 @@ export default function Home() {
             {isAdmin && (
               <>
                 <button
+                  onClick={() => setViewMode(viewMode === 'projects' ? 'worklogs' : 'projects')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${viewMode === 'worklogs' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700'}`}
+                  title={viewMode === 'projects' ? "Ver Reporte de Horas" : "Ver Proyectos"}
+                >
+                  <Clock size={18} />
+                  <span className="md:hidden">Horas</span>
+                </button>
+
+                <button
                   onClick={() => setShowSettingsModal(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border border-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700"
                   title="Parametrizaciones"
@@ -108,7 +119,7 @@ export default function Home() {
       </div>
 
       {isAdmin ? (
-        <ProjectList />
+        viewMode === 'projects' ? <ProjectList /> : <AdminWorkLogs onBack={() => setViewMode('projects')} />
       ) : (
         <WelcomeScreen user={user} />
       )}
