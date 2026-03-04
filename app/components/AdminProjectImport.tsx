@@ -257,8 +257,8 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                     frontend_tech: p.frontend_tech_ids && p.frontend_tech_ids.length > 0 ? p.frontend_tech_ids : undefined,
                     backend_tech: p.backend_tech_ids && p.backend_tech_ids.length > 0 ? p.backend_tech_ids : undefined,
                     database: p.database_ids && p.database_ids.length > 0 ? p.database_ids : undefined,
-                    // 'shift' is likely a Select field (Enum) expecting names, not a Relation expecting IDs
-                    shift: p.shift_ids && p.shift_ids.length > 0 ? getNamesFromIds(p.shift_ids, shifts) : undefined,
+                    // 'shift' is a Relation field expecting IDs
+                    shift: p.shift_ids && p.shift_ids.length > 0 ? p.shift_ids : undefined,
                     estimated_duration: p.estimated_duration,
                     active: true
                 };
