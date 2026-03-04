@@ -125,28 +125,36 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
         }
     };
 
+    const normalizeString = (str: string) => {
+        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+    }
+
     function findIdByName(name: string, options: { id: string, name: string }[]): string | undefined {
         if (!name) return undefined;
-        const lower = name.toLowerCase().trim();
-        // Exact match first, then partial match
-        const exact = options.find(o => o.name.toLowerCase().trim() === lower);
+        const normalizedInput = normalizeString(name);
+        
+        // Exact match (normalized)
+        const exact = options.find(o => normalizeString(o.name) === normalizedInput);
         if (exact) return exact.id;
 
-        // Partial match (e.g. "Software" matches "Desarrollo de Software")
-        return options.find(o => o.name.toLowerCase().includes(lower) || lower.includes(o.name.toLowerCase()))?.id;
+        // Partial match (normalized)
+        return options.find(o => {
+            const normalizedOption = normalizeString(o.name);
+            return normalizedOption.includes(normalizedInput) || normalizedInput.includes(normalizedOption);
+        })?.id;
     }
 
     function findPersonalIdByName(name: string): string | undefined {
         if (!name) return undefined;
-        const lower = name.toLowerCase().trim();
+        const normalizedInput = normalizeString(name);
         
         return personals.find(p => {
-            const fullName1 = `${p.name} ${p.surname}`.toLowerCase();
-            const fullName2 = `${p.surname} ${p.name}`.toLowerCase();
-            const fullName3 = `${p.surname}, ${p.name}`.toLowerCase();
+            const fullName1 = normalizeString(`${p.name} ${p.surname}`);
+            const fullName2 = normalizeString(`${p.surname} ${p.name}`);
+            const fullName3 = normalizeString(`${p.surname}, ${p.name}`);
             
-            return fullName1.includes(lower) || fullName2.includes(lower) || fullName3.includes(lower) ||
-                   lower.includes(fullName1) || lower.includes(fullName2);
+            return fullName1.includes(normalizedInput) || fullName2.includes(normalizedInput) || fullName3.includes(normalizedInput) ||
+                   normalizedInput.includes(fullName1) || normalizedInput.includes(fullName2);
         })?.id;
     }
 
@@ -175,6 +183,10 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
         // (which is recreated on every render) will be the latest.
         
         const areaId = findIdByName(p.requesting_area, areas);
+        if (p.requesting_area && !areaId) {
+            errors.push(`Área "${p.requesting_area}" no encontrada en el sistema`);
+        }
+
         const statusId = findIdByName(p.status, statuses);
         const personalId = findPersonalIdByName(p.personal);
         
