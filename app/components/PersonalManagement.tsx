@@ -120,8 +120,21 @@ export default function PersonalManagement() {
 
   const handleEdit = (item: Personal) => {
     setFormData({
-      ...item,
-      join_date: item.join_date ? item.join_date.split('T')[0] : ''
+      status: item.status || '',
+      surname: item.surname || '',
+      name: item.name || '',
+      dni: item.dni || '',
+      file_number: item.file_number || '',
+      email: item.email || '',
+      phone: item.phone || '',
+      // Ensure shift is always an array, even if it comes as a single string ID
+      shift: Array.isArray(item.shift) ? item.shift : (item.shift ? [item.shift] : []),
+      main_role: item.main_role || '',
+      secondary_role: item.secondary_role || '',
+      // Safe date parsing
+      join_date: item.join_date ? new Date(item.join_date).toISOString().split('T')[0] : '',
+      observations: item.observations || '',
+      cv: item.cv || ''
     });
     setEditingId(item.id);
     setIsEditing(true);
