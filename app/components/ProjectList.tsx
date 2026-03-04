@@ -303,7 +303,7 @@ export default function ProjectList() {
                                 )}
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                                {project.expand?.project_type?.map(t => (
+                                {(Array.isArray(project.expand?.project_type) ? project.expand.project_type : (project.expand?.project_type ? [project.expand.project_type] : []))?.map(t => (
                                     <span key={t.id} className="shrink-0 text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                                         {t.name}
                                     </span>
@@ -337,7 +337,7 @@ export default function ProjectList() {
                         </div>
 
                         <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t dark:border-zinc-700/50">
-                            {project.expand?.frontend_tech?.slice(0, 3).map(t => (
+                            {(Array.isArray(project.expand?.frontend_tech) ? project.expand.frontend_tech : (project.expand?.frontend_tech ? [project.expand.frontend_tech] : []))?.slice(0, 3).map(t => (
                                 <span key={t.id} className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 text-[10px] rounded text-zinc-600 dark:text-zinc-300">{t.name}</span>
                             ))}
                             {(project.frontend_tech?.length || 0) > 3 && (

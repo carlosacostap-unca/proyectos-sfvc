@@ -36,6 +36,13 @@ const ensureArray = (data: any): string[] => {
   return [];
 };
 
+// Helper to ensure expand fields are always arrays
+const ensureExpandList = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data) return [data];
+  return [];
+};
+
 export default function ProjectDetail() {
   const params = useParams();
   const id = params?.id as string;
@@ -178,7 +185,7 @@ export default function ProjectDetail() {
             <div>
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{project.system_name}</h1>
-                {project.expand?.project_type?.map(type => (
+                {ensureExpandList(project.expand?.project_type).map((type: any) => (
                   <span key={type.id} className="px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                     {type.name}
                   </span>
@@ -315,8 +322,8 @@ export default function ProjectDetail() {
                     <Layout size={16} /> Frontend
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {project.expand?.frontend_tech && project.expand.frontend_tech.length > 0 ? (
-                      project.expand.frontend_tech.map(t => (
+                    {ensureExpandList(project.expand?.frontend_tech).length > 0 ? (
+                      ensureExpandList(project.expand?.frontend_tech).map((t: any) => (
                         <span key={t.id} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs rounded border border-indigo-100 dark:border-indigo-800">
                           {t.name}
                         </span>
@@ -330,8 +337,8 @@ export default function ProjectDetail() {
                     <Server size={16} /> Backend
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {project.expand?.backend_tech && project.expand.backend_tech.length > 0 ? (
-                      project.expand.backend_tech.map(t => (
+                    {ensureExpandList(project.expand?.backend_tech).length > 0 ? (
+                      ensureExpandList(project.expand?.backend_tech).map((t: any) => (
                         <span key={t.id} className="px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs rounded border border-emerald-100 dark:border-emerald-800">
                           {t.name}
                         </span>
@@ -345,8 +352,8 @@ export default function ProjectDetail() {
                     <Database size={16} /> Base de Datos
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {project.expand?.database && project.expand.database.length > 0 ? (
-                      project.expand.database.map(t => (
+                    {ensureExpandList(project.expand?.database).length > 0 ? (
+                      ensureExpandList(project.expand?.database).map((t: any) => (
                         <span key={t.id} className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs rounded border border-amber-100 dark:border-amber-800">
                           {t.name}
                         </span>
