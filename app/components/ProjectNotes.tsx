@@ -32,34 +32,29 @@ export default function ProjectNotes({ projectId }: Props) {
     fetchNotes();
 
     // Subscribe to realtime updates
-    // Using a try-catch for the subscription as it might fail if the connection is not ready
-    let isSubscribed = false;
-    
-    const setupSubscription = async () => {
-      try {
-        await pb.collection('project_notes').subscribe<ProjectNote>('*', (e) => {
-          if (e.record.project === projectId) {
-            if (e.action === 'create') {
-              fetchNotes(); // Refresh to get expanded user
-            } else if (e.action === 'delete') {
-              setNotes(prev => prev.filter(n => n.id !== e.record.id));
-            } else if (e.action === 'update') {
-                fetchNotes();
-            }
-          }
-        });
-        isSubscribed = true;
-      } catch (err) {
-        console.error('Realtime subscription error:', err);
+    const onRecordChange = (e: any) => {
+      if (e.record.project === projectId) {
+        if (e.action === 'create') {
+          fetchNotes(); // Refresh to get expanded user
+        } else if (e.action === 'delete') {
+          setNotes(prev => prev.filter(n => n.id !== e.record.id));
+        } else if (e.action === 'update') {
+            fetchNotes();
+        }
       }
     };
 
-    setupSubscription();
+    pb.collection('project_notes').subscribe('*', onRecordChange).catch((err) => {
+      console.error('Realtime subscription error:', err);
+    });
 
     return () => {
-      if (isSubscribed) {
-        pb.collection('project_notes').unsubscribe('*').catch(console.error);
-      }
+      pb.collection('project_notes').unsubscribe('*', onRecordChange).catch((err) => {
+        // Ignore 404/client_id errors during cleanup as they are non-critical
+        if (err?.status !== 404) {
+             console.warn('Unsubscribe error:', err);
+        }
+      });
     };
   }, [projectId, user]);
 

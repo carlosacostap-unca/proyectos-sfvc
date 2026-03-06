@@ -69,35 +69,31 @@ export default function ProjectList() {
       .catch(console.error);
 
     // Subscribe to realtime updates
-    let isSubscribed = false;
-    const setupSubscription = async () => {
-        try {
-            await pb.collection('projects').subscribe<Project>('*', (e) => {
-                if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
-                    // Debounce fetch to prevent excessive API calls during bulk operations
-                    if (fetchTimeoutRef.current) {
-                        clearTimeout(fetchTimeoutRef.current);
-                    }
-                    fetchTimeoutRef.current = setTimeout(() => {
-                        fetchProjects();
-                    }, 1000); // Wait 1 second after last event
-                }
-            });
-            isSubscribed = true;
-        } catch (err) {
-            console.error('Realtime projects subscription error:', err);
+    const onRecordChange = (e: any) => {
+        if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
+            // Debounce fetch to prevent excessive API calls during bulk operations
+            if (fetchTimeoutRef.current) {
+                clearTimeout(fetchTimeoutRef.current);
+            }
+            fetchTimeoutRef.current = setTimeout(() => {
+                fetchProjects();
+            }, 1000); // Wait 1 second after last event
         }
     };
 
-    setupSubscription();
+    pb.collection('projects').subscribe('*', onRecordChange).catch((err) => {
+        console.error('Realtime projects subscription error:', err);
+    });
 
     return () => {
         if (fetchTimeoutRef.current) {
             clearTimeout(fetchTimeoutRef.current);
         }
-        if (isSubscribed) {
-            pb.collection('projects').unsubscribe('*').catch(console.error);
-        }
+        pb.collection('projects').unsubscribe('*', onRecordChange).catch((err) => {
+             if (err?.status !== 404) {
+                  console.warn('Unsubscribe error:', err);
+             }
+        });
     };
   }, []);
 
