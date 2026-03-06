@@ -161,19 +161,44 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
         responsible: formData.responsible || null,
       };
 
+      // Remove empty fields to avoid sending nulls where not appropriate
+      const cleanData: any = { ...dataToSave };
+      
+      // Remove keys with null values if they are optional and might cause issues
+      Object.keys(cleanData).forEach(key => {
+        if (cleanData[key] === null || cleanData[key] === '') {
+          delete cleanData[key];
+        }
+      });
+      
+      // Ensure required fields are present even if empty (though UI validation handles this)
+      cleanData.project = projectId;
+      cleanData.phase = formData.phase;
+
       if (editingId) {
-        await pb.collection('project_timeline').update(editingId, dataToSave);
+        await pb.collection('project_timeline').update(editingId, cleanData);
         toast.success('Fase actualizada');
       } else {
-        await pb.collection('project_timeline').create(dataToSave);
+        await pb.collection('project_timeline').create(cleanData);
         toast.success('Fase agregada');
       }
       resetForm();
       fetchTimeline();
     } catch (error: any) {
       console.error('Error saving timeline item:', error);
-      console.log('Error data:', error.data);
-      toast.error(`Error al guardar: ${error.message}`);
+      
+      // Enhanced error handling to show specific validation messages
+      const errorData = error.data?.data || error.data || {};
+      const errorMessages = [];
+      
+      if (Object.keys(errorData).length > 0) {
+        for (const [field, details] of Object.entries(errorData as Record<string, any>)) {
+           errorMessages.push(`${field}: ${details.message}`);
+        }
+        toast.error(`Error de validación: ${errorMessages.join(', ')}`);
+      } else {
+        toast.error(`Error al guardar: ${error.message}`);
+      }
     }
   };
 
