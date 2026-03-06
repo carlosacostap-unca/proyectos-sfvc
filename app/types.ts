@@ -152,6 +152,7 @@ export interface Project {
     database?: TechItem[];
     status?: ProjectStatusItem;
     project_type?: ProjectTypeItem[];
+    shift?: ShiftItem[];
   };
   
   project_type: string[]; // Relation (Multiple) IDs

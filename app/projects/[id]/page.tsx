@@ -66,7 +66,7 @@ export default function ProjectDetail() {
       try {
         setLoading(true);
         const record = await pb.collection('projects').getOne<Project>(id, {
-          expand: 'requesting_area,personal,frontend_tech,backend_tech,database,status,project_type',
+          expand: 'requesting_area,personal,frontend_tech,backend_tech,database,status,project_type,shift',
         });
         setProject(record);
       } catch (err: any) {
@@ -246,7 +246,7 @@ export default function ProjectDetail() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Turno:</span>
                   <span className="font-medium">
-                    {ensureArray(project.shift).join(', ') || '-'}
+                    {ensureExpandList(project.expand?.shift).map((s: any) => s.name).join(', ') || '-'}
                   </span>
                 </div>
               </div>
