@@ -26,7 +26,7 @@ export default function EditProjectPage() {
   const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
   const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
-  const [shifts, setShifts] = useState<string[]>(DEFAULT_SHIFTS);
+  const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,11 +79,11 @@ export default function EditProjectPage() {
       pb.collection('shifts').getFullList<ShiftItem>({ sort: 'name', filter: 'active = true' })
         .then(items => {
           if (items.length > 0) {
-            setShifts(items.map(i => i.name));
+            setShifts(items);
           }
         })
-        .catch(() => {
-           console.log('Using default shifts');
+        .catch((err) => {
+           console.error('Error loading shifts:', err);
         });
 
     }).catch(err => {
@@ -325,14 +325,14 @@ export default function EditProjectPage() {
                     <label className="block text-sm font-medium mb-2">Turno de Desarrollo</label>
                     <div className="flex gap-4">
                       {shifts.map(shift => (
-                        <label key={shift} className="flex items-center gap-2 cursor-pointer">
+                        <label key={shift.id} className="flex items-center gap-2 cursor-pointer">
                           <input 
                             type="checkbox"
-                            checked={(formData.shift as string[])?.includes(shift)}
-                            onChange={() => handleMultiSelect('shift', shift)}
+                            checked={(formData.shift as string[])?.includes(shift.id)}
+                            onChange={() => handleMultiSelect('shift', shift.id)}
                             className="rounded text-blue-600 focus:ring-blue-500"
                           />
-                          <span className="text-sm">{shift}</span>
+                          <span className="text-sm">{shift.name}</span>
                         </label>
                       ))}
                     </div>

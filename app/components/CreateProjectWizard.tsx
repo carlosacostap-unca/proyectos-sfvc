@@ -289,7 +289,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       description: '¿En qué turno se trabajará?',
       type: 'cards',
       field: 'shift',
-      options: shifts.map(s => ({ label: s.name, value: s.name })),
+      options: shifts.map(s => ({ label: s.name, value: s.id })),
       validate: () => (formDataRef.current.shift?.length || 0) > 0,
     },
     {
