@@ -157,6 +157,8 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
         real_start_date: formData.real_start_date || null,
         planned_end_date: formData.planned_end_date || null,
         real_end_date: formData.real_end_date || null,
+        status: formData.status || null,
+        responsible: formData.responsible || null,
       };
 
       if (editingId) {
@@ -170,6 +172,7 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
       fetchTimeline();
     } catch (error: any) {
       console.error('Error saving timeline item:', error);
+      console.log('Error data:', error.data);
       toast.error(`Error al guardar: ${error.message}`);
     }
   };
