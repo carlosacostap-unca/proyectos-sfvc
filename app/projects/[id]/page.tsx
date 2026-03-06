@@ -80,36 +80,36 @@ export default function ProjectDetail() {
     fetchProject();
 
     // Subscribe to realtime updates for this specific project
-    let isSubscribed = false;
-    const setupSubscription = async () => {
-        try {
-            await pb.collection('projects').subscribe<Project>(id, (e) => {
-                if (e.action === 'update') {
-                    // We can optimistically update the state or re-fetch
-                    // Re-fetching ensures we get all expanded relations correctly
-                    fetchProject();
-                } else if (e.action === 'delete') {
-                    setError('El proyecto ha sido eliminado.');
-                    setProject(null);
-                }
-            });
-            isSubscribed = true;
-        } catch (err) {
-            console.error('Realtime project subscription error:', err);
+    const onRecordChange = (e: any) => {
+        if (e.action === 'update') {
+            // We can optimistically update the state or re-fetch
+            // Re-fetching ensures we get all expanded relations correctly
+            fetchProject(); // fetchProject is stable? It's defined inside useEffect. 
+            // Wait, fetchProject is defined inside useEffect, so we can call it.
+            // But we need to make sure fetchProject is accessible.
+            // It is defined in the same scope.
+        } else if (e.action === 'delete') {
+            setError('El proyecto ha sido eliminado.');
+            setProject(null);
         }
     };
-
-    setupSubscription();
+    
+    // We need to move fetchProject definition outside or keep it here.
+    // To make onRecordChange work, we need to make sure it captures the latest fetchProject? 
+    // Actually, since this effect runs on [id, user], fetchProject is recreated every time.
+    // So onRecordChange will call the fetchProject of the *current* effect cycle.
+    
+    pb.collection('projects').subscribe(id, onRecordChange).catch((err) => {
+        console.error('Realtime project subscription error:', err);
+    });
 
     return () => {
-        if (isSubscribed) {
-            pb.collection('projects').unsubscribe(id).catch((err) => {
-                // Ignore 404/client_id errors during cleanup as they are non-critical
-                if (err?.status !== 404) {
-                    console.error('Unsubscribe error:', err);
-                }
-            });
-        }
+        pb.collection('projects').unsubscribe(id, onRecordChange).catch((err) => {
+            // Ignore 404/client_id errors during cleanup as they are non-critical
+            if (err?.status !== 404) {
+                console.warn('Unsubscribe error:', err);
+            }
+        });
     };
   }, [id, user]);
 

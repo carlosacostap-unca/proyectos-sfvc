@@ -175,6 +175,8 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
       cleanData.project = projectId;
       cleanData.phase = formData.phase;
 
+      console.log('Saving phase payload:', cleanData);
+
       if (editingId) {
         await pb.collection('project_timeline').update(editingId, cleanData);
         toast.success('Fase actualizada');
