@@ -89,7 +89,7 @@ export default function ProjectList() {
         if (fetchTimeoutRef.current) {
             clearTimeout(fetchTimeoutRef.current);
         }
-        pb.collection('projects').unsubscribe('*', onRecordChange).catch((err) => {
+        pb.collection('projects').unsubscribe('*').catch((err) => {
              if (err?.status !== 404) {
                   console.warn('Unsubscribe error:', err);
              }

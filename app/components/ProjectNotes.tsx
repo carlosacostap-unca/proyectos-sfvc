@@ -49,7 +49,7 @@ export default function ProjectNotes({ projectId }: Props) {
     });
 
     return () => {
-      pb.collection('project_notes').unsubscribe('*', onRecordChange).catch((err) => {
+      pb.collection('project_notes').unsubscribe('*').catch((err) => {
         // Ignore 404/client_id errors during cleanup as they are non-critical
         if (err?.status !== 404) {
              console.warn('Unsubscribe error:', err);

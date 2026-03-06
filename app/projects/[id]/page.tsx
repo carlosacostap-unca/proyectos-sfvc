@@ -104,7 +104,7 @@ export default function ProjectDetail() {
     });
 
     return () => {
-        pb.collection('projects').unsubscribe(id, onRecordChange).catch((err) => {
+        pb.collection('projects').unsubscribe(id).catch((err) => {
             // Ignore 404/client_id errors during cleanup as they are non-critical
             if (err?.status !== 404) {
                 console.warn('Unsubscribe error:', err);
