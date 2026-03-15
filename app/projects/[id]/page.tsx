@@ -21,7 +21,9 @@ import {
   FileText,
   Layers,
   Edit,
-  Trash2
+  Trash2,
+  Shield,
+  Folder
 } from 'lucide-react';
 import Link from 'next/link';
 import EvaluationSection from '@/app/components/EvaluationSection';
@@ -66,7 +68,7 @@ export default function ProjectDetail() {
       try {
         setLoading(true);
         const record = await pb.collection('projects').getOne<Project>(id, {
-          expand: 'requesting_area,personal,frontend_tech,backend_tech,database,status,project_type,shift',
+          expand: 'requesting_area,program,personal,frontend_tech,backend_tech,database,status,project_type,shift',
         });
         setProject(record);
       } catch (err: any) {
@@ -252,17 +254,55 @@ export default function ProjectDetail() {
               </div>
             </div>
 
-            {/* Personas / Areas */}
+            {/* Nivel de Seguridad */}
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6 space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-2">
-                <Users size={20} className="text-purple-500" />
-                Área Solicitante
+                <Shield size={20} className="text-red-500" />
+                Nivel de Seguridad
               </h3>
               
               <div>
-                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                  <Briefcase size={16} />
-                  <span>{project.expand?.requesting_area?.name || 'No asignada'}</span>
+                {project.security_level ? (
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    project.security_level === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                    project.security_level === 'medium' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                  }`}>
+                    {project.security_level === 'high' ? 'Alto' : 
+                     project.security_level === 'medium' ? 'Medio' : 'Bajo'}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 italic text-sm">Sin asignar</span>
+                )}
+              </div>
+            </div>
+
+            {/* Organización: Area y Programa */}
+            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-2">
+                <Users size={20} className="text-purple-500" />
+                Organización
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Área Solicitante</h4>
+                  <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                    <Briefcase size={16} />
+                    <span>{project.expand?.requesting_area?.name || 'No asignada'}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Programa</h4>
+                  <div className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                    <Folder size={16} />
+                    {project.expand?.program ? (
+                        <span className="font-medium">{project.expand.program.name}</span>
+                    ) : (
+                        <span className="text-gray-400 italic">No asignado</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

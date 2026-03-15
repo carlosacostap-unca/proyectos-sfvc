@@ -1,3 +1,18 @@
+export interface Program {
+  id: string;
+  name: string;
+  description: string;
+  start_date?: string;
+  end_date?: string;
+  active: boolean;
+  manager?: string; // Relation to personal
+  created: string;
+  updated: string;
+  expand?: {
+    manager?: Personal;
+  };
+}
+
 export interface RequestingArea {
   id: string;
   name: string;
@@ -113,8 +128,8 @@ export interface ProjectAssignment {
   id: string;
   project: string; // Relation to projects
   personal: string; // Relation to personal
-  start_date: string; // ISO Date - Fecha de asignación
-  end_date: string; // ISO Date - Fecha de desvinculación
+  start_date: string | null; // ISO Date - Fecha de asignación
+  end_date: string | null; // ISO Date - Fecha de desvinculación
   roles: string[]; // Relation to roles (Multiple)
   active: boolean;
   created: string;
@@ -133,19 +148,21 @@ export interface Project {
   year: number;
   system_name: string;
   requesting_area: string; // Relation ID
+  program?: string; // Relation to programs
   
   // New Fields
   status: ProjectStatus; // Relation ID
   start_date: string; // ISO Date
-  estimated_end_date: string; // ISO Date
-  personal: string; // Relation ID to personal collection
-  observations: string; // HTML/Rich Text
-  drive_folder: string; // URL
-  server: string; // HTML/Rich Text
-  active: boolean;
+  estimated_end_date?: string; // ISO Date
+  personal?: string; // Relation to personal (single)
+  observations?: string;
+  drive_folder?: string;
+  server?: string;
+  active?: boolean;
 
   expand?: {
     requesting_area?: RequestingArea;
+    program?: Program;
     personal?: Personal;
     frontend_tech?: TechItem[];
     backend_tech?: TechItem[];
@@ -161,6 +178,7 @@ export interface Project {
   database: string[]; // Multi-select
   shift: string[]; // Multi-select: 'Mañana' | 'Tarde'
   estimated_duration: number; // in months
+  security_level?: 'low' | 'medium' | 'high' | ''; // Security Level
   created: string;
   updated: string;
 }

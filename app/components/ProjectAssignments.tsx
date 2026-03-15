@@ -151,15 +151,12 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
       toast.error('Debes seleccionar una persona');
       return;
     }
-    if (!formData.start_date) {
-      toast.error('La fecha de inicio es obligatoria');
-      return;
-    }
 
     // Prepare data for PocketBase
     const dataToSend = {
       ...formData,
       // Ensure empty strings are sent as null for optional date fields
+      start_date: formData.start_date ? formData.start_date : null,
       end_date: formData.end_date ? formData.end_date : null,
     };
 
@@ -304,7 +301,6 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Asignación</label>
                     <input
                       type="date"
-                      required
                       value={formData.start_date}
                       onChange={(e) => setFormData({...formData, start_date: e.target.value})}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"

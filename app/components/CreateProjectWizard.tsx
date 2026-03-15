@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Check, ChevronDown, ChevronUp, X, Sparkles, Search, Briefcase, Plus, Edit2, Trash2, Calendar, Clock, User, Save } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem, ShiftItem, RoleItem } from '@/app/types';
+import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem, ShiftItem, RoleItem, Program } from '@/app/types';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -33,6 +33,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [areas, setAreas] = useState<RequestingArea[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [personal, setPersonal] = useState<Personal[]>([]);
   const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
@@ -66,6 +67,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     code: '',
     year: new Date().getFullYear(),
     system_name: '',
+    program: '',
     requesting_area: '',
     project_type: [],
     status: '',
@@ -74,6 +76,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     database: [],
     shift: [],
     estimated_duration: 1,
+    security_level: '',
     start_date: '',
     estimated_end_date: '',
     personal: '',
@@ -93,6 +96,11 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     // Fetch areas
     pb.collection('requesting_areas').getFullList<RequestingArea>({ sort: 'name', filter: 'active = true' })
       .then(setAreas)
+      .catch(console.error);
+
+    // Fetch programs
+    pb.collection('programs').getFullList<Program>({ sort: 'name', filter: 'active = true' })
+      .then(setPrograms)
       .catch(console.error);
     
     // Fetch personal
@@ -143,7 +151,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
 
   // Auto-calculate end date based on start date and duration
   useEffect(() => {
-    if (formData.start_date && formData.estimated_duration) {
+    if (formData.start_date && (formData.estimated_duration || formData.estimated_duration === 0)) {
       const start = new Date(formData.start_date);
       if (!isNaN(start.getTime())) {
         const end = new Date(start);
@@ -189,6 +197,16 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       },
     },
     {
+      id: 'program',
+      title: '2.5 ¿Pertenece a algún Programa?',
+      description: 'Selecciona el programa al que pertenece este proyecto (Opcional).',
+      type: 'select',
+      searchable: true,
+      field: 'program',
+      options: programs.map(p => ({ label: p.name, value: p.id })),
+      validate: () => true, // Optional
+    },
+    {
       id: 'code',
       title: '3. ¿Qué código identificador tendrá?',
       description: 'Suele ser una sigla única.',
@@ -216,7 +234,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       description: 'Indica el año de inicio y cuántos meses tomará.',
       type: 'group',
       fields: ['year', 'estimated_duration'],
-      validate: () => !!formDataRef.current.year && !!formDataRef.current.estimated_duration,
+      validate: () => !!formDataRef.current.year && (formDataRef.current.estimated_duration !== undefined && formDataRef.current.estimated_duration >= 0),
     },
     {
       id: 'status',
@@ -260,7 +278,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       description: 'Gestiona el equipo del proyecto.',
       type: 'assignments-manager',
       field: 'assignments',
-      validate: () => assignments.length > 0,
+      validate: () => true,
     },
     {
       id: 'type',
@@ -272,8 +290,21 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       validate: () => (formDataRef.current.project_type?.length || 0) > 0,
     },
     {
+      id: 'security_level',
+      title: '11. Nivel de Seguridad',
+      description: 'Define el nivel de seguridad requerido.',
+      type: 'cards',
+      field: 'security_level',
+      options: [
+        { label: 'Bajo', value: 'low' },
+        { label: 'Medio', value: 'medium' },
+        { label: 'Alto', value: 'high' },
+      ],
+      validate: () => true, // Optional
+    },
+    {
       id: 'tech_stack',
-      title: '11. Stack Tecnológico',
+      title: '12. Stack Tecnológico',
       description: 'Selecciona todas las tecnologías que apliquen.',
       type: 'multiselect-group',
       groups: [
@@ -285,7 +316,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'shift',
-      title: '12. Turno de Desarrollo',
+      title: '13. Turno de Desarrollo',
       description: '¿En qué turno se trabajará?',
       type: 'cards',
       field: 'shift',
@@ -294,7 +325,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'observations',
-      title: '13. Observaciones',
+      title: '14. Observaciones',
       description: 'Detalles adicionales, notas o comentarios.',
       type: 'textarea',
       field: 'observations',
@@ -303,7 +334,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'drive',
-      title: '14. Carpeta de Drive',
+      title: '15. Carpeta de Drive',
       description: 'Enlace o nombre de la carpeta de documentación.',
       type: 'text',
       inputType: 'url',
@@ -321,7 +352,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     },
     {
       id: 'server',
-      title: '15. Servidor',
+      title: '16. Servidor',
       description: 'Información sobre el servidor de despliegue.',
       type: 'textarea', // Rich text requested, so textarea
       field: 'server',
@@ -390,8 +421,8 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   const handleSaveAssignment = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    if (!assignmentForm.personal || !assignmentForm.start_date) {
-      alert('Debes seleccionar personal y fecha de asignación');
+    if (!assignmentForm.personal) {
+      alert('Debes seleccionar personal');
       return;
     }
 
@@ -478,6 +509,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       if (projectData.drive_folder === '') projectData.drive_folder = null;
       if (projectData.server === '') projectData.server = null;
       if (projectData.observations === '') projectData.observations = null;
+      if (projectData.program === '') projectData.program = null;
       
       // requestKey: null ensures this request is never cancelled by auto-cancellation
       const newProject = await pb.collection('projects').create<Project>(projectData, { requestKey: null });
@@ -488,7 +520,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           pb.collection('project_assignments').create({
             project: newProject.id,
             personal: assignment.personal,
-            start_date: assignment.start_date,
+            start_date: assignment.start_date || null,
             end_date: assignment.end_date || null,
             roles: assignment.roles,
             active: assignment.active,
@@ -609,6 +641,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                 <label className="block text-sm font-medium text-gray-500 mb-1">Duración (Meses)</label>
                 <input
                   type="number"
+                  min="0"
                   value={formData.estimated_duration}
                   onChange={(e) => updateField('estimated_duration', parseInt(e.target.value))}
                   className="w-full text-3xl bg-transparent border-b-2 border-gray-300 focus:border-blue-600 outline-none py-2"
@@ -745,7 +778,6 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Asignación</label>
                             <input
                               type="date"
-                              required
                               value={assignmentForm.start_date}
                               onChange={(e) => setAssignmentForm({...assignmentForm, start_date: e.target.value})}
                               className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm dark:[color-scheme:dark]"

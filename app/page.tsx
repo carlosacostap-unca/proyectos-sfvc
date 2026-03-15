@@ -5,10 +5,11 @@ import WelcomeScreen from "./components/WelcomeScreen";
 import AdminWorkLogs from "./components/AdminWorkLogs";
 import AdminProjectCleanup from "./components/AdminProjectCleanup";
 import AdminProjectImport from "./components/AdminProjectImport";
+import ProgramList from "./components/ProgramList";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Users, Settings, Clock, Trash2, Upload } from "lucide-react";
+import { LogOut, Users, Settings, Clock, Trash2, Upload, Layers } from "lucide-react";
 import { pb } from "@/lib/pocketbase";
 import UserManagementModal from "./components/UserManagementModal";
 import SettingsModal from "./components/SettingsModal";
@@ -18,7 +19,7 @@ export default function Home() {
   const router = useRouter();
   const [showUserModal, setShowUserModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'projects' | 'worklogs' | 'cleanup' | 'import'>('projects');
+  const [viewMode, setViewMode] = useState<'projects' | 'worklogs' | 'cleanup' | 'import' | 'programs'>('projects');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -99,6 +100,15 @@ export default function Home() {
                 </button>
 
                 <button
+                  onClick={() => setViewMode(viewMode === 'programs' ? 'projects' : 'programs')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${viewMode === 'programs' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700'}`}
+                  title={viewMode === 'programs' ? "Ver Proyectos" : "Gestionar Programas"}
+                >
+                  <Layers size={18} />
+                  <span className="md:hidden">Programas</span>
+                </button>
+
+                <button
                   onClick={() => setViewMode(viewMode === 'import' ? 'projects' : 'import')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${viewMode === 'import' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700'}`}
                   title={viewMode === 'import' ? "Ver Proyectos" : "Importar CSV"}
@@ -142,6 +152,7 @@ export default function Home() {
         viewMode === 'projects' ? <ProjectList /> : 
         viewMode === 'worklogs' ? <AdminWorkLogs onBack={() => setViewMode('projects')} /> :
         viewMode === 'cleanup' ? <AdminProjectCleanup onBack={() => setViewMode('projects')} /> :
+        viewMode === 'programs' ? <ProgramList onBack={() => setViewMode('projects')} /> :
         <AdminProjectImport onBack={() => setViewMode('projects')} />
       ) : (
         <WelcomeScreen user={user} />

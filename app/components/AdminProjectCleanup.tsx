@@ -147,6 +147,7 @@ export default function AdminProjectCleanup({ onBack }: AdminProjectCleanupProps
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Sistema</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seguridad</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado</th>
                             </tr>
                         </thead>
@@ -172,6 +173,19 @@ export default function AdminProjectCleanup({ onBack }: AdminProjectCleanupProps
                                             <span className="px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-zinc-700 whitespace-nowrap">
                                                 {p.expand?.status?.name || 'Sin Estado'}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {p.security_level ? (
+                                                <span className={`px-2 py-1 rounded-full text-xs border whitespace-nowrap ${
+                                                    p.security_level === 'high' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-900' :
+                                                    p.security_level === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-900' :
+                                                    'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/10 dark:text-green-400 dark:border-green-900'
+                                                }`}>
+                                                    {p.security_level === 'high' ? 'Alto' : p.security_level === 'medium' ? 'Medio' : 'Bajo'}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 italic text-xs">-</span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                             {new Date(p.created).toLocaleDateString()}

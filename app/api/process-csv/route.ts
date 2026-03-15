@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
             "backend_tech": string[] (Array of tech names),
             "database": string[] (Array of database names),
             "shift": string[] (Array of shift names e.g. 'Mañana', 'Tarde'),
-            "estimated_duration": number (months, default 0. Look for columns like "Duración", "Duration", "Meses", "Plazo")
+            "estimated_duration": number (months, default 0. Look for columns like "Duración", "Duration", "Meses", "Plazo"),
+            "security_level": string ("low" | "medium" | "high" | null. Look for columns like "Seguridad", "Security", "Nivel", "Risk". Map values like "Bajo"->"low", "Medio"->"medium", "Alto"->"high". If not found or empty, return null)
           }
 
           Rules:

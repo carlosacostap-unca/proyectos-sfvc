@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { Project, ProjectStatus, ProjectTypeItem, ProjectStatusItem } from '@/app/types';
-import { Plus, Search, Filter, X, RefreshCw } from 'lucide-react';
+import { Project, ProjectStatus, ProjectTypeItem, ProjectStatusItem, Program } from '@/app/types';
+import { Plus, Search, Filter, X, RefreshCw, Shield, Folder } from 'lucide-react';
 import Link from 'next/link';
 import CreateProjectWizard from './CreateProjectWizard';
 
@@ -13,6 +13,7 @@ export default function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [statuses, setStatuses] = useState<ProjectStatusItem[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectTypeItem[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showWizard, setShowWizard] = useState(false);
@@ -22,6 +23,7 @@ export default function ProjectList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [programFilter, setProgramFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
 
   const fetchProjects = async () => {
@@ -30,7 +32,7 @@ export default function ProjectList() {
       // Disable auto-cancellation with requestKey: null to prevent race conditions in React StrictMode
       const records = await pb.collection('projects').getFullList<Project>({
         sort: '-created',
-        expand: 'requesting_area,personal,status,project_type,frontend_tech',
+        expand: 'requesting_area,program,personal,status,project_type,frontend_tech',
         requestKey: null
       });
       setProjects(records);
@@ -68,6 +70,10 @@ export default function ProjectList() {
       .then(setProjectTypes)
       .catch(console.error);
 
+    pb.collection('programs').getFullList<Program>({ sort: 'name', filter: 'active = true' })
+      .then(setPrograms)
+      .catch(console.error);
+    
     // Subscribe to realtime updates
     const onRecordChange = (e: any) => {
         if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
@@ -103,6 +109,7 @@ export default function ProjectList() {
       (project.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter ? project.status === statusFilter : true;
+    const matchesProgram = programFilter ? project.program === programFilter : true;
     const matchesType = typeFilter 
       ? (Array.isArray(project.project_type) 
           ? project.project_type.includes(typeFilter) 
@@ -115,13 +122,14 @@ export default function ProjectList() {
         ? project.active !== false 
         : project.active === false;
 
-    return matchesSearch && matchesStatus && matchesType && matchesActive;
+    return matchesSearch && matchesStatus && matchesType && matchesActive && matchesProgram;
   });
 
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
     setTypeFilter('');
+    setProgramFilter('');
     setActiveFilter('');
   };
 
@@ -217,7 +225,18 @@ export default function ProjectList() {
                     ))}
                 </select>
 
-                {(searchTerm || statusFilter || typeFilter) && (
+                <select 
+                    value={programFilter}
+                    onChange={(e) => setProgramFilter(e.target.value)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                    <option value="">Todos los Programas</option>
+                    {programs.map(prog => (
+                        <option key={prog.id} value={prog.id}>{prog.name}</option>
+                    ))}
+                </select>
+
+                {(searchTerm || statusFilter || typeFilter || programFilter) && (
                     <button 
                         onClick={clearFilters}
                         className="w-full sm:w-auto flex items-center justify-center gap-1 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -234,7 +253,7 @@ export default function ProjectList() {
       <section>
         <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                {searchTerm || statusFilter || typeFilter ? 'Resultados de la búsqueda' : 'Listado Reciente'}
+                {searchTerm || statusFilter || typeFilter || programFilter ? 'Resultados de la búsqueda' : 'Listado Reciente'}
                 <span className="ml-2 text-sm font-normal text-gray-500">
                     ({filteredProjects.length} {filteredProjects.length === 1 ? 'proyecto' : 'proyectos'})
                 </span>
@@ -318,6 +337,14 @@ export default function ProjectList() {
                                     <span className="text-left sm:text-right truncate sm:ml-2 max-w-full sm:max-w-[150px]">{project.expand.requesting_area.name}</span>
                                 </p>
                             )}
+                            {project.expand?.program && (
+                                <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                    <span className="text-gray-400 font-medium flex items-center gap-1"><Folder size={12} /> Programa:</span> 
+                                    <span className="text-left sm:text-right truncate sm:ml-2 max-w-full sm:max-w-[150px] font-medium text-indigo-600 dark:text-indigo-400">
+                                        {project.expand.program.name}
+                                    </span>
+                                </p>
+                            )}
                             {project.expand?.personal && (
                                 <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                     <span className="text-gray-400 font-medium">Líder:</span> 
@@ -330,6 +357,19 @@ export default function ProjectList() {
                                 <span className="text-gray-400 font-medium">Duración:</span> 
                                 <span className="truncate">{project.estimated_duration} meses</span>
                             </p>
+                            {project.security_level && (
+                                <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                    <span className="text-gray-400 font-medium flex items-center gap-1"><Shield size={12} /> Seguridad:</span> 
+                                    <span className={`truncate font-medium ${
+                                        project.security_level === 'high' ? 'text-red-600 dark:text-red-400' :
+                                        project.security_level === 'medium' ? 'text-amber-600 dark:text-amber-400' :
+                                        'text-green-600 dark:text-green-400'
+                                    }`}>
+                                        {project.security_level === 'high' ? 'Alto' : 
+                                         project.security_level === 'medium' ? 'Medio' : 'Bajo'}
+                                    </span>
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t dark:border-zinc-700/50">

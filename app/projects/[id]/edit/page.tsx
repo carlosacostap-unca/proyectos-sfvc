@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { X, Save, AlertCircle, ArrowLeft } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem, ShiftItem } from '@/app/types';
+import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem, ShiftItem, Program } from '@/app/types';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
 import Link from 'next/link';
 
@@ -21,6 +21,7 @@ export default function EditProjectPage() {
   const [formData, setFormData] = useState<Partial<Project>>({});
 
   const [areas, setAreas] = useState<RequestingArea[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [feTechs, setFeTechs] = useState<TechItem[]>([]);
   const [beTechs, setBeTechs] = useState<TechItem[]>([]);
   const [dbTechs, setDbTechs] = useState<TechItem[]>([]);
@@ -62,13 +63,15 @@ export default function EditProjectPage() {
   useEffect(() => {
     Promise.all([
       pb.collection('requesting_areas').getFullList<RequestingArea>({ sort: 'name' }).catch(() => []),
+      pb.collection('programs').getFullList<Program>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('frontend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('backend_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('database_technologies').getFullList<TechItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('project_types').getFullList<ProjectTypeItem>({ sort: 'name', filter: 'active = true' }).catch(() => []),
       pb.collection('project_statuses').getFullList<ProjectStatusItem>({ sort: 'name', filter: 'active = true' }).catch(() => [])
-    ]).then(([areasData, feData, beData, dbData, typesData, statusesData]) => {
+    ]).then(([areasData, programsData, feData, beData, dbData, typesData, statusesData]) => {
       setAreas(areasData);
+      setPrograms(programsData);
       setFeTechs(feData);
       setBeTechs(beData);
       setDbTechs(dbData);
@@ -94,7 +97,7 @@ export default function EditProjectPage() {
 
   // Auto-calculate end date
   useEffect(() => {
-    if (formData.start_date && formData.estimated_duration) {
+    if (formData.start_date && (formData.estimated_duration || formData.estimated_duration === 0)) {
       const start = new Date(formData.start_date);
       if (!isNaN(start.getTime())) {
         const end = new Date(start);
@@ -139,6 +142,7 @@ export default function EditProjectPage() {
         estimated_duration: Number(formData.estimated_duration),
         shift: Array.isArray(formData.shift) ? formData.shift : [],
         project_type: Array.isArray(formData.project_type) ? formData.project_type : [],
+        program: formData.program || null,
       };
 
       // Check for duplicates (name)
@@ -240,6 +244,17 @@ export default function EditProjectPage() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium mb-1">Programa</label>
+                    <select 
+                      value={formData.program || ''}
+                      onChange={e => handleChange('program', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
+                    >
+                      <option value="">Sin Programa</option>
+                      {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium mb-1">Código</label>
                     <input 
                       type="text" 
@@ -287,6 +302,19 @@ export default function EditProjectPage() {
                     >
                       <option value="">Seleccionar Estado</option>
                       {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nivel de Seguridad</label>
+                    <select 
+                      value={formData.security_level || ''}
+                      onChange={e => handleChange('security_level', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
+                    >
+                      <option value="">Sin Asignar</option>
+                      <option value="low">Bajo</option>
+                      <option value="medium">Medio</option>
+                      <option value="high">Alto</option>
                     </select>
                   </div>
                   <div>
@@ -447,7 +475,7 @@ export default function EditProjectPage() {
                     <label className="block text-sm font-medium mb-1">Duración (meses)</label>
                     <input 
                       type="number" 
-                      min="1"
+                      min="0"
                       value={formData.estimated_duration}
                       onChange={e => handleChange('estimated_duration', e.target.value)}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"

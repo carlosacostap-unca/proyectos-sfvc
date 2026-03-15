@@ -35,6 +35,7 @@ interface ImportedProject {
     shift: string[];
     shift_ids?: string[];
     estimated_duration: number;
+    security_level?: 'low' | 'medium' | 'high' | '';
     isValid: boolean;
     errors: string[];
 }
@@ -222,6 +223,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
             shift: Array.isArray(p.shift) ? p.shift : [],
             shift_ids: shiftIds,
             estimated_duration: p.estimated_duration || 0,
+            security_level: ['low', 'medium', 'high'].includes(p.security_level) ? p.security_level : '',
             isValid: errors.length === 0,
             errors
         };
@@ -272,6 +274,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                     // 'shift' is a Relation field expecting IDs
                     shift: p.shift_ids && p.shift_ids.length > 0 ? p.shift_ids : undefined,
                     estimated_duration: p.estimated_duration,
+                    security_level: p.security_level || '',
                     active: true
                 };
 
@@ -481,6 +484,21 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                                     >
                                         <option value="">Seleccionar...</option>
                                         {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+
+                                {/* Security Level */}
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium text-gray-500">Nivel de Seguridad</label>
+                                    <select 
+                                        value={p.security_level || ''} 
+                                        onChange={(e) => updateProject(p.id!, 'security_level', e.target.value)}
+                                        className="w-full text-sm border rounded px-2 py-1 bg-transparent"
+                                    >
+                                        <option value="">Sin Asignar</option>
+                                        <option value="low">Bajo</option>
+                                        <option value="medium">Medio</option>
+                                        <option value="high">Alto</option>
                                     </select>
                                 </div>
 
