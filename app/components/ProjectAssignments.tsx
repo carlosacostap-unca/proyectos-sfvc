@@ -301,7 +301,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Asignación</label>
                     <input
                       type="date"
-                      value={formData.start_date}
+                      value={formData.start_date || ''}
                       onChange={(e) => setFormData({...formData, start_date: e.target.value})}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                     />
@@ -310,7 +310,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Desvinculación</label>
                     <input
                       type="date"
-                      value={formData.end_date}
+                      value={formData.end_date || ''}
                       onChange={(e) => setFormData({...formData, end_date: e.target.value})}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                     />
