@@ -24,6 +24,7 @@ interface ImportedProject {
     start_date: string;
     estimated_end_date: string;
     observations: string;
+    expected_benefit: string;
     project_type: string[]; // Names
     project_type_ids?: string[]; // IDs
     frontend_tech: string[];
@@ -212,6 +213,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
             start_date: p.start_date || '',
             estimated_end_date: p.estimated_end_date || '',
             observations: p.observations || '',
+            expected_benefit: p.expected_benefit || '',
             project_type: Array.isArray(p.project_type) ? p.project_type : [],
             project_type_ids: typeIds,
             frontend_tech: Array.isArray(p.frontend_tech) ? p.frontend_tech : [],
@@ -267,6 +269,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                     status: p.status_id,
                     personal: p.personal_id,
                     observations: p.observations,
+                    expected_benefit: p.expected_benefit,
                     project_type: p.project_type_ids && p.project_type_ids.length > 0 ? p.project_type_ids : undefined,
                     frontend_tech: p.frontend_tech_ids && p.frontend_tech_ids.length > 0 ? p.frontend_tech_ids : undefined,
                     backend_tech: p.backend_tech_ids && p.backend_tech_ids.length > 0 ? p.backend_tech_ids : undefined,
@@ -552,6 +555,14 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                                     <textarea 
                                         value={p.observations} 
                                         onChange={(e) => updateProject(p.id!, 'observations', e.target.value)}
+                                        className="w-full text-sm border rounded px-2 py-1 bg-transparent h-20"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium text-gray-500">Beneficio Esperado</label>
+                                    <textarea 
+                                        value={p.expected_benefit} 
+                                        onChange={(e) => updateProject(p.id!, 'expected_benefit', e.target.value)}
                                         className="w-full text-sm border rounded px-2 py-1 bg-transparent h-20"
                                     />
                                 </div>

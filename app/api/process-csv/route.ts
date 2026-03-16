@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
             "start_date": string (ISO Date YYYY-MM-DD or null. Look for columns like "Fecha Inicio", "Start Date", "Comienzo"),
             "estimated_end_date": string (ISO Date YYYY-MM-DD or null. Look for columns like "Fecha Fin", "End Date", "Estimada Fin", "Cierre"),
             "observations": string (Look for columns like "Observaciones", "Notas", "Detalles", "Descripción"),
+            "expected_benefit": string (Look for columns like "Beneficio", "Beneficio esperado", "Impacto"),
             "project_type": string[] (Array of type names. Split comma-separated values. Look for columns like "Tipo", "Type", "Categoría", "Clasificación"),
             "frontend_tech": string[] (Array of tech names),
             "backend_tech": string[] (Array of tech names),

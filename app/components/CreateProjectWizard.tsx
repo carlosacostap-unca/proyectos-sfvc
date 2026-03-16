@@ -81,6 +81,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     estimated_end_date: '',
     personal: '',
     observations: '',
+    expected_benefit: '',
     drive_folder: '',
     server: '',
     active: true
@@ -360,6 +361,15 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       validate: () => true, // Optional
     },
     {
+      id: 'expected_benefit',
+      title: '17. Beneficio Esperado',
+      description: 'Describe los beneficios esperados del proyecto.',
+      type: 'textarea',
+      field: 'expected_benefit',
+      placeholder: 'Ej: Mejora del 20% en la eficiencia operativa...',
+      validate: () => true, // Optional
+    },
+    {
       id: 'review',
       type: 'review',
       title: '¡Todo listo!',
@@ -509,6 +519,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       if (projectData.drive_folder === '') projectData.drive_folder = null;
       if (projectData.server === '') projectData.server = null;
       if (projectData.observations === '') projectData.observations = null;
+      if (projectData.expected_benefit === '') projectData.expected_benefit = null;
       if (projectData.program === '') projectData.program = null;
       
       // requestKey: null ensures this request is never cancelled by auto-cancellation
@@ -1192,6 +1203,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                  <div className="col-span-2">
                     <span className="block text-gray-500">Observaciones</span>
                     <span className="font-medium whitespace-pre-wrap">{formData.observations || '-'}</span>
+                 </div>
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Beneficio Esperado</span>
+                    <span className="font-medium whitespace-pre-wrap">{formData.expected_benefit || '-'}</span>
                  </div>
               </div>
               

@@ -507,6 +507,16 @@ export default function EditProjectPage() {
                     placeholder="Notas adicionales..."
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Beneficio Esperado</label>
+                  <textarea 
+                    rows={4}
+                    value={formData.expected_benefit || ''}
+                    onChange={e => handleChange('expected_benefit', e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
+                    placeholder="Beneficio esperado del proyecto..."
+                  />
+                </div>
               </div>
 
             </form>

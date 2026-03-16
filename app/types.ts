@@ -179,6 +179,7 @@ export interface Project {
   shift: string[]; // Multi-select: 'Mañana' | 'Tarde'
   estimated_duration: number; // in months
   security_level?: 'low' | 'medium' | 'high' | ''; // Security Level
+  expected_benefit?: string; // Beneficio esperado
   created: string;
   updated: string;
 }

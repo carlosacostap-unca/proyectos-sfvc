@@ -423,6 +423,22 @@ export default function ProjectDetail() {
           )}
         </div>
 
+        {/* Beneficio Esperado (Full Width) */}
+        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border dark:border-zinc-700 p-6">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b dark:border-zinc-700 pb-2 mb-4">
+            <FileText size={20} className="text-gray-500" />
+            Beneficio Esperado
+          </h3>
+          {project.expected_benefit ? (
+            <div 
+              className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400"
+              dangerouslySetInnerHTML={{ __html: project.expected_benefit }}
+            />
+          ) : (
+            <p className="text-gray-400 italic">Sin beneficio esperado registrado.</p>
+          )}
+        </div>
+
         {/* Notas y Evaluación (Full Width) */}
         <div className="flex flex-col gap-6">
           <ProjectNotes projectId={project.id} />
