@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { Personal, WorkLog } from '@/app/types';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import { formatLocalDate } from '@/app/utils/date';
 
 interface AdminWorkLogsProps {
     onBack: () => void;
@@ -146,7 +147,7 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
                                 logs.map((log) => (
                                     <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                            {new Date(log.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                            {formatLocalDate(log.date)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300 font-medium">
                                             {log.expand?.project?.system_name || log.expand?.project?.code || 'Sin Proyecto'}

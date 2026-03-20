@@ -9,6 +9,7 @@ import { EVALUATION_DIMENSIONS } from '@/app/data/evaluationCriteria';
 import { Plus, ClipboardCheck, ChevronDown, ChevronUp, History, HelpCircle, Filter, Edit } from 'lucide-react';
 import EvaluationWizard from './EvaluationWizard';
 import EvaluationRadarChart from './EvaluationRadarChart';
+import { formatLocalDate } from '@/app/utils/date';
 
 interface Props {
   projectId: string;
@@ -152,7 +153,7 @@ export default function EvaluationSection({ projectId }: Props) {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      Evaluación del {new Date(evaluation.created).toLocaleDateString()}
+                      Evaluación del {formatLocalDate(evaluation.created)}
                     </p>
                     <p className="text-sm text-gray-500 flex items-center gap-1">
                       <History size={12} />

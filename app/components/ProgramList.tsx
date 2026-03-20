@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { Program } from '@/app/types';
+import { formatLocalDate, toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 import { Plus, Edit, Trash2, Search, Loader2, ArrowLeft, Layers, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,11 +54,16 @@ export default function ProgramList({ onBack }: ProgramListProps) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const dataToSave = {
+                ...formData,
+                start_date: formData.start_date ? fromLocalDateString(formData.start_date) : null,
+                end_date: formData.end_date ? fromLocalDateString(formData.end_date) : null,
+            };
             if (editingProgram) {
-                await pb.collection('programs').update(editingProgram.id, formData);
+                await pb.collection('programs').update(editingProgram.id, dataToSave);
                 toast.success('Programa actualizado');
             } else {
-                await pb.collection('programs').create(formData);
+                await pb.collection('programs').create(dataToSave);
                 toast.success('Programa creado');
             }
             setIsCreating(false);
@@ -81,8 +87,8 @@ export default function ProgramList({ onBack }: ProgramListProps) {
         setFormData({
             name: program.name,
             description: program.description,
-            start_date: program.start_date,
-            end_date: program.end_date,
+            start_date: program.start_date ? toLocalDateString(program.start_date) : '',
+            end_date: program.end_date ? toLocalDateString(program.end_date) : '',
             active: program.active
         });
         setIsCreating(true);
@@ -290,7 +296,7 @@ export default function ProgramList({ onBack }: ProgramListProps) {
                                 {program.start_date && (
                                     <div className="flex items-center gap-2">
                                         <Calendar size={14} />
-                                        <span>Inicio: {new Date(program.start_date).toLocaleDateString()}</span>
+                                        <span>Inicio: {formatLocalDate(program.start_date)}</span>
                                     </div>
                                 )}
                                 <div className="flex items-center justify-between">

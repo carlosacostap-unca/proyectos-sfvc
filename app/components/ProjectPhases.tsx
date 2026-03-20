@@ -8,6 +8,7 @@ import {
 import { pb } from '@/lib/pocketbase';
 import { ProjectTimelineItem, Personal, PhaseItem, PhaseStatusItem } from '@/app/types';
 import { toast } from 'sonner';
+import { toLocalDateString, fromLocalDateString, formatLocalDate } from '@/app/utils/date';
 
 interface ProjectPhasesProps {
   projectId: string;
@@ -109,20 +110,18 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
     setEditingId(null);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', { timeZone: 'UTC' });
+  const formatDate = (dateString: string | null | undefined) => {
+    return formatLocalDate(dateString);
   };
 
   const handleEdit = (item: ProjectTimelineItem) => {
     setFormData({
       project: item.project,
       phase: item.phase,
-      planned_start_date: item.planned_start_date?.substring(0, 10) || '',
-      real_start_date: item.real_start_date?.substring(0, 10) || '',
-      planned_end_date: item.planned_end_date?.substring(0, 10) || '',
-      real_end_date: item.real_end_date?.substring(0, 10) || '',
+      planned_start_date: item.planned_start_date ? toLocalDateString(item.planned_start_date) : '',
+      real_start_date: item.real_start_date ? toLocalDateString(item.real_start_date) : '',
+      planned_end_date: item.planned_end_date ? toLocalDateString(item.planned_end_date) : '',
+      real_end_date: item.real_end_date ? toLocalDateString(item.real_end_date) : '',
       status: item.status,
       responsible: item.responsible,
       observations: item.observations
@@ -151,17 +150,16 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
     }
 
     try {
-      const dataToSave = {
-        ...formData,
-        planned_start_date: formData.planned_start_date || null,
-        real_start_date: formData.real_start_date || null,
-        planned_end_date: formData.planned_end_date || null,
-        real_end_date: formData.real_end_date || null,
-        status: formData.status || null,
-        responsible: formData.responsible || null,
-      };
+    const dataToSave = {
+      ...formData,
+      planned_start_date: formData.planned_start_date ? fromLocalDateString(formData.planned_start_date) : null,
+      real_start_date: formData.real_start_date ? fromLocalDateString(formData.real_start_date) : null,
+      planned_end_date: formData.planned_end_date ? fromLocalDateString(formData.planned_end_date) : null,
+      real_end_date: formData.real_end_date ? fromLocalDateString(formData.real_end_date) : null,
+      status: formData.status || null,
+      responsible: formData.responsible || null,
+    };
 
-      // Remove empty fields to avoid sending nulls where not appropriate
       const cleanData: any = { ...dataToSave };
       
       // Remove keys with null values if they are optional and might cause issues
@@ -420,7 +418,7 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
                         <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                           <Calendar size={14} className="text-gray-400" />
                           <span>
-                            {formatDate(item.planned_start_date) || '-'} 
+                            {formatDate(item.planned_start_date) || '-'}
                             <span className="mx-1">→</span>
                             {formatDate(item.planned_end_date) || '-'}
                           </span>
@@ -431,11 +429,15 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
                         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Real</span>
                         <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                           <Calendar size={14} className="text-gray-400" />
-                          <span>
-                            {formatDate(item.real_start_date) || '-'} 
-                            <span className="mx-1">→</span>
-                            {formatDate(item.real_end_date) || '-'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={item.real_start_date ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 italic'}>
+                              {formatDate(item.real_start_date) || '-'}
+                            </span>
+                            <span className="mx-1 text-gray-400">→</span>
+                            <span className={item.real_end_date ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 italic'}>
+                              {formatDate(item.real_end_date) || '-'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>

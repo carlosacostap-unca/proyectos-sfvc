@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { X, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import { toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 import { pb } from '@/lib/pocketbase';
 import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem, ShiftItem, Program } from '@/app/types';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
@@ -103,8 +104,8 @@ export default function EditProjectPage() {
         const end = new Date(start);
         end.setMonth(end.getMonth() + Number(formData.estimated_duration));
         
-        const currentEndDay = formData.estimated_end_date ? new Date(formData.estimated_end_date).toISOString().split('T')[0] : '';
-        const newEndDay = end.toISOString().split('T')[0];
+        const currentEndDay = formData.estimated_end_date ? toLocalDateString(formData.estimated_end_date) : '';
+        const newEndDay = toLocalDateString(end);
         
         if (currentEndDay !== newEndDay) {
           setFormData(prev => ({ ...prev, estimated_end_date: end.toISOString() }));
@@ -456,8 +457,8 @@ export default function EditProjectPage() {
                     <label className="block text-sm font-medium mb-1">Fecha de Inicio</label>
                     <input 
                       type="date" 
-                      value={formData.start_date ? new Date(formData.start_date).toISOString().split('T')[0] : ''}
-                      onChange={e => handleChange('start_date', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                      value={toLocalDateString(formData.start_date || '')}
+                      onChange={e => handleChange('start_date', e.target.value ? fromLocalDateString(e.target.value) : '')}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:[color-scheme:dark]"
                     />
                   </div>
@@ -467,7 +468,7 @@ export default function EditProjectPage() {
                       type="date" 
                       readOnly
                       tabIndex={-1}
-                      value={formData.estimated_end_date ? new Date(formData.estimated_end_date).toISOString().split('T')[0] : ''}
+                      value={toLocalDateString(formData.estimated_end_date || '')}
                       className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-zinc-900/50 dark:border-zinc-800 dark:text-zinc-500 dark:[color-scheme:dark]"
                     />
                   </div>

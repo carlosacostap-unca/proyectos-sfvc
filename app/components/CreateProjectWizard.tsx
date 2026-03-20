@@ -522,6 +522,14 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       if (projectData.expected_benefit === '') projectData.expected_benefit = null;
       if (projectData.program === '') projectData.program = null;
       
+      // Convert dates to proper ISO strings with local timezone offset before saving
+      if (projectData.start_date) {
+        projectData.start_date = new Date(`${projectData.start_date}T00:00:00`).toISOString();
+      }
+      if (projectData.estimated_end_date) {
+        projectData.estimated_end_date = new Date(`${projectData.estimated_end_date}T00:00:00`).toISOString();
+      }
+
       // requestKey: null ensures this request is never cancelled by auto-cancellation
       const newProject = await pb.collection('projects').create<Project>(projectData, { requestKey: null });
 
@@ -531,8 +539,8 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           pb.collection('project_assignments').create({
             project: newProject.id,
             personal: assignment.personal,
-            start_date: assignment.start_date || null,
-            end_date: assignment.end_date || null,
+            start_date: assignment.start_date ? new Date(`${assignment.start_date}T00:00:00`).toISOString() : null,
+            end_date: assignment.end_date ? new Date(`${assignment.end_date}T00:00:00`).toISOString() : null,
             roles: assignment.roles,
             active: assignment.active,
           })
@@ -909,12 +917,12 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                             <div className="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400">
                               <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-gray-400" />
-                                <span>Desde: {new Date(item.start_date).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</span>
+                                <span>Desde: {new Date(item.start_date).toLocaleDateString('es-ES')}</span>
                               </div>
                               {item.end_date && (
                                 <div className="flex items-center gap-2">
                                   <Clock size={14} className="text-gray-400" />
-                                  <span>Hasta: {new Date(item.end_date).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</span>
+                                  <span>Hasta: {new Date(item.end_date).toLocaleDateString('es-ES')}</span>
                                 </div>
                               )}
                             </div>

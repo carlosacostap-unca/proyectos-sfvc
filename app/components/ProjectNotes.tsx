@@ -9,6 +9,7 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
+import { formatLocalDate } from '@/app/utils/date';
 import { pb } from '@/lib/pocketbase';
 import { ProjectNote } from '@/app/types';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -110,13 +111,7 @@ export default function ProjectNotes({ projectId }: Props) {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatLocalDate(dateStr);
   };
 
   return (

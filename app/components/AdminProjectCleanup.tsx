@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { Project } from '@/app/types';
 import { Trash2, ArrowLeft, Loader2, AlertTriangle, Search } from 'lucide-react';
+import { toLocalDateString, formatLocalDate } from '@/app/utils/date';
 
 interface AdminProjectCleanupProps {
     onBack: () => void;
@@ -188,7 +189,7 @@ export default function AdminProjectCleanup({ onBack }: AdminProjectCleanupProps
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                            {new Date(p.created).toLocaleDateString()}
+                                            {formatLocalDate(p.created)}
                                         </td>
                                     </tr>
                                 ))

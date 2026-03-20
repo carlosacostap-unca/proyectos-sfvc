@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
 import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight } from 'lucide-react';
+import { formatLocalDate, toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 
 interface TimeTrackingProps {
   userEmail: string;
@@ -467,6 +468,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     Volver
                 </button>
             )}
+
           </div>
         </div>
 
@@ -477,11 +479,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                  <div className="flex items-center justify-end gap-2">
                     <span className="text-sm text-gray-500">Fecha:</span>
                     <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
-                        <Calendar size={18} className="text-gray-500 ml-2" />
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium px-2">
-                            {new Date(date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        </span>
-                    </div>
+                          <Calendar size={18} className="text-gray-500 ml-2" />
+                          <span className="text-gray-700 dark:text-gray-200 text-sm font-medium px-2">
+                              {formatLocalDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                          </span>
+                      </div>
                  </div>
             </div>
 
@@ -590,7 +592,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                                     const dateObj = new Date(y, m - 1, d);
                                     // Verify valid date object
                                     if (!isNaN(dateObj.getTime())) {
-                                        formattedDate = dateObj.toLocaleDateString('es-ES', {
+                                        formattedDate = formatLocalDate(dateObj, {
                                             weekday: 'long',
                                             year: 'numeric',
                                             month: 'long',

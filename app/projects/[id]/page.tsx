@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { pb } from '@/lib/pocketbase';
+import { toLocalDateString, formatLocalDate } from '@/app/utils/date';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Project } from '@/app/types';
 import { 
@@ -232,13 +233,13 @@ export default function ProjectDetail() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Inicio:</span>
                   <span className="font-medium">
-                    {project.start_date ? new Date(project.start_date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'No definida'}
+                    {project.start_date ? formatLocalDate(project.start_date) : 'No definida'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Fin Estimado:</span>
                   <span className="font-medium">
-                    {project.estimated_end_date ? new Date(project.estimated_end_date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'No definida'}
+                    {project.estimated_end_date ? formatLocalDate(project.estimated_end_date) : 'No definida'}
                   </span>
                 </div>
                 <div className="flex justify-between">

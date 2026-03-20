@@ -5,6 +5,7 @@ import {
   Plus, Trash2, Edit2, Save, X, Search, 
   Calendar, Briefcase, User, Check, Clock
 } from 'lucide-react';
+import { toLocalDateString, fromLocalDateString, formatLocalDate } from '@/app/utils/date';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, Personal, RoleItem } from '@/app/types';
 import { toast } from 'sonner';
@@ -91,29 +92,15 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
   };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', { timeZone: 'UTC' });
+    return formatLocalDate(dateString);
   };
 
   const handleEdit = (item: ProjectAssignment) => {
-    // Prevent event propagation
-    // e.preventDefault(); // Removed because it's not passed
-    
-    // Extract YYYY-MM-DD from the UTC timestamp string (safe for 'T' or space separator)
-    const startDate = item.start_date && item.start_date.length >= 10 
-      ? item.start_date.substring(0, 10) 
-      : '';
-    
-    const endDate = item.end_date && item.end_date.length >= 10 
-      ? item.end_date.substring(0, 10) 
-      : '';
-
     setFormData({
       project: item.project,
       personal: item.personal,
-      start_date: startDate,
-      end_date: endDate,
+      start_date: item.start_date ? toLocalDateString(item.start_date) : '',
+      end_date: item.end_date ? toLocalDateString(item.end_date) : '',
       roles: Array.isArray(item.roles) ? item.roles : (item.roles ? [item.roles] : []),
       active: item.active ?? true
     });
@@ -155,9 +142,9 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
     // Prepare data for PocketBase
     const dataToSend = {
       ...formData,
-      // Ensure empty strings are sent as null for optional date fields
-      start_date: formData.start_date ? formData.start_date : null,
-      end_date: formData.end_date ? formData.end_date : null,
+      // Convert to ISO string considering local timezone
+      start_date: formData.start_date ? fromLocalDateString(formData.start_date) : null,
+      end_date: formData.end_date ? fromLocalDateString(formData.end_date) : null,
     };
 
     try {
