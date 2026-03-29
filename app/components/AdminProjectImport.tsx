@@ -14,6 +14,7 @@ interface ImportedProject {
     id?: string; // Temporary ID for list management
     code: string;
     system_name: string;
+    description?: string;
     year: number;
     requesting_area: string; // Name from CSV
     requesting_area_id?: string; // Mapped ID
