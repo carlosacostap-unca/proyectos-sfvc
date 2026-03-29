@@ -42,6 +42,15 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [workingDays, setWorkingDays] = useState<string[]>([]);
+  const [projectSummary, setProjectSummary] = useState<Array<{projectId: string, projectName: string, totalHours: number}>>([]);
+  
+  // Date range for summary
+  const [summaryStartDate, setSummaryStartDate] = useState(() => {
+      const d = new Date();
+      d.setDate(1); // First day of current month
+      return d.toISOString().split('T')[0];
+  });
+  const [summaryEndDate, setSummaryEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Helper to get last 10 working days
   const getLast10WorkingDays = () => {
@@ -271,11 +280,53 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     setExpandedDates(newExpanded);
   };
 
+  const fetchProjectSummary = async () => {
+    if (!personalId) return;
+    try {
+      const logs = await pb.collection('work_logs').getFullList<WorkLog>({
+        filter: `personal = "${personalId}" && date >= "${summaryStartDate} 00:00:00" && date <= "${summaryEndDate} 23:59:59"`,
+        expand: 'project'
+      });
+
+      const summaryMap: Record<string, {name: string, totalHours: number}> = {};
+      
+      // Initialize with currently assigned projects
+      projectList.forEach(p => {
+         summaryMap[p.id] = { name: p.name, totalHours: 0 };
+      });
+
+      logs.forEach(log => {
+         const pId = log.project || 'general';
+         const pName = log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Sin Proyecto / Tareas Generales';
+         
+         if (!summaryMap[pId]) {
+             summaryMap[pId] = { name: pName, totalHours: 0 };
+         }
+         summaryMap[pId].totalHours += log.hours;
+      });
+
+      const summaryArray = Object.entries(summaryMap)
+         .map(([projectId, data]) => ({ projectId, projectName: data.name, totalHours: data.totalHours }))
+         .filter(item => item.totalHours > 0 || projectList.some(p => p.id === item.projectId))
+         .sort((a, b) => b.totalHours - a.totalHours);
+
+      setProjectSummary(summaryArray);
+    } catch (err) {
+      console.error('Error fetching project summary:', err);
+    }
+  };
+
   useEffect(() => {
     if (!isEditing && personalId && workingDays.length > 0) {
         fetchHistory();
     }
   }, [isEditing, personalId, workingDays]);
+
+  useEffect(() => {
+    if (!isEditing && personalId) {
+        fetchProjectSummary();
+    }
+  }, [isEditing, personalId, summaryStartDate, summaryEndDate, projectList]);
 
   const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string}>) => {
     try {
@@ -569,6 +620,46 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         </>
         ) : (
             <div className="p-6">
+                {/* Resumen por Proyecto */}
+                {!loadingHistory && (
+                    <div className="mb-6 bg-indigo-50/30 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <h3 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+                                <Clock size={16} />
+                                Resumen de Horas por Proyecto
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs">
+                                <input 
+                                    type="date" 
+                                    value={summaryStartDate}
+                                    onChange={(e) => setSummaryStartDate(e.target.value)}
+                                    className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md px-2 py-1 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <span className="text-gray-400">a</span>
+                                <input 
+                                    type="date" 
+                                    value={summaryEndDate}
+                                    onChange={(e) => setSummaryEndDate(e.target.value)}
+                                    className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md px-2 py-1 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-indigo-500"
+                                />
+                            </div>
+                        </div>
+                        
+                        {projectSummary.length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center py-2">No hay horas registradas en este período.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {projectSummary.map(ps => (
+                                    <div key={ps.projectId} className="bg-white dark:bg-zinc-800 p-3 rounded-lg border border-gray-100 dark:border-zinc-700 shadow-sm flex justify-between items-center">
+                                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate pr-2" title={ps.projectName}>{ps.projectName}</span>
+                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{ps.totalHours}h</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="space-y-4">
                     {loadingHistory ? (
                         <div className="text-center py-8 text-gray-500">

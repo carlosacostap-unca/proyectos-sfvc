@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: NextRequest) {
   try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
 
@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
             "personal": string (Name of the Leader or Responsable e.g. "Juan Perez" or "Perez, Juan". Do NOT use "Product Owner" column),
             "start_date": string (ISO Date YYYY-MM-DD or null. Look for columns like "Fecha Inicio", "Start Date", "Comienzo"),
             "estimated_end_date": string (ISO Date YYYY-MM-DD or null. Look for columns like "Fecha Fin", "End Date", "Estimada Fin", "Cierre"),
-            "observations": string (Look for columns like "Observaciones", "Notas", "Detalles", "Descripción"),
+            "description": string (Look for columns like "Descripción", "Resumen", "Acerca de"),
+            "observations": string (Look for columns like "Observaciones", "Notas", "Detalles"),
             "expected_benefit": string (Look for columns like "Beneficio", "Beneficio esperado", "Impacto"),
             "project_type": string[] (Array of type names. Split comma-separated values. Look for columns like "Tipo", "Type", "Categoría", "Clasificación"),
             "frontend_tech": string[] (Array of tech names),

@@ -82,10 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       // Only clear auth if it's explicitly an auth error (401/403)
       if (err.status === 401 || err.status === 403) {
-          console.warn('Session expired during revalidation:', err);
+          console.log('Session expired during revalidation. Clearing auth store.');
           pb.authStore.clear();
       } else {
-          console.warn('Revalidation skipped due to network/other error:', err);
+          console.warn('Revalidation skipped due to network/other error:', err.message);
           // Keep the local session for offline capability or retry later
       }
     }

@@ -67,6 +67,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     code: '',
     year: new Date().getFullYear(),
     system_name: '',
+    description: '',
     program: '',
     requesting_area: '',
     project_type: [],
@@ -196,6 +197,15 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           return false;
         }
       },
+    },
+    {
+      id: 'description',
+      title: '2.1 ¿De qué se trata el proyecto?',
+      description: 'Agrega una descripción para tener más contexto del proyecto.',
+      type: 'textarea',
+      field: 'description',
+      placeholder: 'Ej: Sistema encargado de centralizar...',
+      validate: () => true, // Optional
     },
     {
       id: 'program',
@@ -1125,7 +1135,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                     <span className="block text-gray-500">Código</span>
                     <span className="font-medium">{formData.code || '-'}</span>
                  </div>
-                 
+                 <div className="col-span-2">
+                    <span className="block text-gray-500">Descripción</span>
+                    <span className="font-medium">{formData.description || '-'}</span>
+                 </div>
                  <div className="col-span-2 md:col-span-1">
                     <span className="block text-gray-500">Estado</span>
                     <span className="font-medium">

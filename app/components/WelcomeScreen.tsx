@@ -10,7 +10,7 @@ export default function WelcomeScreen({ user }: WelcomeScreenProps) {
   const isAdmin = (user as any)?.isAdmin;
 
   return (
-    <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto mt-8 md:mt-20 text-center space-y-6 animate-fade-in pb-20 px-4 md:px-0">
+    <div className={`flex flex-col items-center justify-center w-full max-w-4xl mx-auto ${isAdmin ? 'mt-8 md:mt-20' : 'mt-4 md:mt-8'} text-center space-y-6 animate-fade-in pb-20 px-4 md:px-0`}>
       {isAdmin && (
         <>
           <div className="bg-indigo-50 dark:bg-indigo-900/20 p-8 rounded-full shadow-sm">
@@ -29,7 +29,7 @@ export default function WelcomeScreen({ user }: WelcomeScreenProps) {
       )}
 
       {user?.email && (
-        <div className="w-full mt-12 animate-slide-up">
+        <div className={`w-full ${isAdmin ? 'mt-12' : 'mt-4'} animate-slide-up`}>
             <TimeTracking userEmail={user.email} isAdmin={isAdmin} />
         </div>
       )}

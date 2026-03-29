@@ -194,12 +194,17 @@ export default function ProjectDetail() {
                   </span>
                 ))}
               </div>
-              <p className="text-gray-500 flex items-center gap-2">
+              <p className="text-gray-500 flex items-center gap-2 mb-4">
                 <Code size={16} />
                 <span className="font-mono font-medium">{project.code}</span>
                 <span className="mx-2">•</span>
                 <span>Año {project.year}</span>
               </p>
+              {project.description && (
+                <p className="text-gray-700 dark:text-gray-300 mt-2 text-sm leading-relaxed max-w-3xl">
+                  {project.description}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col items-end gap-2">

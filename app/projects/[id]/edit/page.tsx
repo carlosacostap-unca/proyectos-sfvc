@@ -244,6 +244,15 @@ export default function EditProjectPage() {
                       className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700"
                     />
                   </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Descripción</label>
+                    <textarea 
+                      value={formData.description || ''}
+                      onChange={e => handleChange('description', e.target.value)}
+                      placeholder="Agrega una descripción del proyecto..."
+                      className="w-full px-3 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 min-h-[80px]"
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Programa</label>
                     <select 

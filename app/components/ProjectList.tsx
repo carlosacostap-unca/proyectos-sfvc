@@ -327,6 +327,11 @@ export default function ProjectList() {
                         </div>
                         
                         <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2 flex-grow">
+                            {project.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 italic">
+                                    {project.description}
+                                </p>
+                            )}
                             <p className="flex flex-col sm:flex-row sm:justify-between gap-1">
                                 <span className="text-gray-400 font-medium">Código:</span> 
                                 <span className="font-mono truncate">{project.code}</span>

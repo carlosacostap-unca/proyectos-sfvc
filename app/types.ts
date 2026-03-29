@@ -147,6 +147,7 @@ export interface Project {
   code: string;
   year: number;
   system_name: string;
+  description?: string; // New description field
   requesting_area: string; // Relation ID
   program?: string; // Relation to programs
   

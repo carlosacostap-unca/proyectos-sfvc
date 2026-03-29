@@ -268,6 +268,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                     requesting_area: p.requesting_area_id,
                     status: p.status_id,
                     personal: p.personal_id,
+                    description: p.description || '',
                     observations: p.observations,
                     expected_benefit: p.expected_benefit,
                     project_type: p.project_type_ids && p.project_type_ids.length > 0 ? p.project_type_ids : undefined,
