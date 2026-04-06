@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { Personal, WorkLog } from '@/app/types';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { formatLocalDate } from '@/app/utils/date';
+import { getLocalDayStartUTC, getLocalDayEndUTC, formatLocalDate } from '@/app/utils/date';
 
 interface AdminWorkLogsProps {
     onBack: () => void;
@@ -48,13 +48,13 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
             setLoading(true);
             try {
                 const [year, month] = selectedDate.split('-').map(Number);
-                const startDate = `${selectedDate}-01 00:00:00`;
+                const startDate = `${selectedDate}-01`;
                 // Calculate last day of month
                 const lastDay = new Date(year, month, 0).getDate();
-                const endDate = `${selectedDate}-${lastDay} 23:59:59`;
+                const endDate = `${selectedDate}-${String(lastDay).padStart(2, '0')}`;
 
                 const records = await pb.collection('work_logs').getList<WorkLog>(1, 500, {
-                    filter: `personal = "${selectedPersonalId}" && date >= "${startDate}" && date <= "${endDate}"`,
+                    filter: `personal = "${selectedPersonalId}" && date >= "${getLocalDayStartUTC(startDate)}" && date <= "${getLocalDayEndUTC(endDate)}"`,
                     sort: '-date',
                     expand: 'project'
                 });

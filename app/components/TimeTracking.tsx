@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
 import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import { formatLocalDate, toLocalDateString, fromLocalDateString } from '@/app/utils/date';
+import { formatLocalDate, toLocalDateString, fromLocalDateString, getLocalDayStartUTC, getLocalDayEndUTC } from '@/app/utils/date';
 import ProjectReadOnlyModal from './ProjectReadOnlyModal';
 
 interface TimeTrackingProps {
@@ -28,7 +28,7 @@ interface GroupedLog {
 }
 
 export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackingProps) {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(toLocalDateString(new Date()));
   const [personalId, setPersonalId] = useState<string | null>(null);
   const [entries, setEntries] = useState<ProjectTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,7 +250,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       const startDate = workingDays[workingDays.length - 1]; // 10th working day back
 
       const logs = await pb.collection('work_logs').getList<WorkLog>(1, 200, {
-        filter: `personal = "${personalId}" && date >= "${startDate} 00:00:00" && date <= "${endDate} 23:59:59"`,
+        filter: `personal = "${personalId}" && date >= "${getLocalDayStartUTC(startDate)}" && date <= "${getLocalDayEndUTC(endDate)}"`,
         sort: '-date,-created',
         expand: 'project',
       });
@@ -261,8 +261,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         // Handle various date formats safely
         let d = '';
         if (log.date) {
-            // Extract YYYY-MM-DD regardless of time component or separator
-            d = log.date.substring(0, 10);
+            // Convert UTC date to local date string
+            d = toLocalDateString(new Date(log.date));
         }
         
         // Ensure valid date string
@@ -306,7 +306,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     if (!personalId) return;
     try {
       const logs = await pb.collection('work_logs').getFullList<WorkLog>({
-        filter: `personal = "${personalId}" && date >= "${summaryStartDate} 00:00:00" && date <= "${summaryEndDate} 23:59:59"`,
+        filter: `personal = "${personalId}" && date >= "${getLocalDayStartUTC(summaryStartDate)}" && date <= "${getLocalDayEndUTC(summaryEndDate)}"`,
         expand: 'project'
       });
 
@@ -356,7 +356,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       // Fetch logs for this date
       try {
         const logs = await pb.collection('work_logs').getFullList<WorkLog>({
-          filter: `personal = "${pId}" && date >= "${selectedDate} 00:00:00" && date <= "${selectedDate} 23:59:59"`,
+          filter: `personal = "${pId}" && date >= "${getLocalDayStartUTC(selectedDate)}" && date <= "${getLocalDayEndUTC(selectedDate)}"`,
           expand: 'project',
         });
 
@@ -481,7 +481,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
 
         const data: any = {
             personal: personalId,
-            date: date,
+            date: fromLocalDateString(date), // Convert local date to UTC ISO string
             hours: entry.hours,
             description: entry.description
         };

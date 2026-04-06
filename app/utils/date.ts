@@ -27,3 +27,15 @@ export const fromLocalDateString = (dateString: string | null | undefined): stri
   if (isNaN(d.getTime())) return '';
   return d.toISOString();
 };
+
+export const getLocalDayStartUTC = (dateString: string): string => {
+  if (!dateString) return '';
+  const d = new Date(`${dateString}T00:00:00`);
+  return d.toISOString().replace('T', ' ').replace('Z', '');
+};
+
+export const getLocalDayEndUTC = (dateString: string): string => {
+  if (!dateString) return '';
+  const d = new Date(`${dateString}T23:59:59.999`);
+  return d.toISOString().replace('T', ' ').replace('Z', '');
+};
