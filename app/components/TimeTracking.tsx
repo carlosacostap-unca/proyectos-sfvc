@@ -5,6 +5,7 @@ import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
 import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { formatLocalDate, toLocalDateString, fromLocalDateString } from '@/app/utils/date';
+import ProjectReadOnlyModal from './ProjectReadOnlyModal';
 
 interface TimeTrackingProps {
   userEmail: string;
@@ -18,7 +19,6 @@ interface ProjectTimeEntry {
   hours: number;
   logId?: string; // If updating existing log
   description?: string;
-  projectDescription?: string;
 }
 
 interface GroupedLog {
@@ -35,7 +35,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [projectList, setProjectList] = useState<Array<{id: string, name: string, assignmentId: string, description?: string}>>([]);
+  const [projectList, setProjectList] = useState<Array<{id: string, name: string, assignmentId: string}>>([]);
   
   // New state for history view
   const [isEditing, setIsEditing] = useState(false); // Replaces viewMode
@@ -44,9 +44,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [projectSummary, setProjectSummary] = useState<Array<{projectId: string, projectName: string, totalHours: number}>>([]);
-  const [allProjects, setAllProjects] = useState<Array<{id: string, name: string, description?: string}>>([]);
+  const [allProjects, setAllProjects] = useState<Array<{id: string, name: string}>>([]);
   const [showAddProject, setShowAddProject] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedProjectToView, setSelectedProjectToView] = useState<string>('');
+  const [showProjectDetails, setShowProjectDetails] = useState(false);
   
   // Date range for summary
   const [summaryStartDate, setSummaryStartDate] = useState(() => {
@@ -164,7 +166,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         setPersonalId(foundPersonalId);
 
         // 3. Merge projects (avoiding duplicates if user is both assigned and owner)
-        const mergedProjects = new Map<string, {id: string, name: string, assignmentId: string, description?: string}>();
+        const mergedProjects = new Map<string, {id: string, name: string, assignmentId: string}>();
 
         // Add from assignments
         assignmentRecords.forEach(assignment => {
@@ -174,8 +176,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
              mergedProjects.set(project.id, {
                id: project.id,
                name: project.system_name || project.code,
-               assignmentId: assignment.id,
-               description: project.description
+               assignmentId: assignment.id
              });
            }
         });
@@ -186,8 +187,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             mergedProjects.set(project.id, {
               id: project.id,
               name: project.system_name || project.code,
-              assignmentId: `owner_${project.id}`, // Virtual assignment ID
-              description: project.description
+              assignmentId: `owner_${project.id}` // Virtual assignment ID
             });
           }
         });
@@ -198,8 +198,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         finalProjects.unshift({
             id: 'general',
             name: 'Sin Proyecto / Tareas Generales',
-            assignmentId: 'general',
-            description: 'Horas dedicadas a tareas generales no asociadas a un proyecto específico'
+            assignmentId: 'general'
         });
 
         if (finalProjects.length === 0) {
@@ -212,7 +211,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         // Save all active projects for the "Add occasional project" feature
         setAllProjects(
             allActiveProjects
-                .map(p => ({ id: p.id, name: p.system_name || p.code, description: p.description }))
+                .map(p => ({ id: p.id, name: p.system_name || p.code }))
                 .sort((a, b) => a.name.localeCompare(b.name))
         );
 
@@ -351,7 +350,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     }
   }, [isEditing, personalId, summaryStartDate, summaryEndDate, projectList]);
 
-  const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string, description?: string}>) => {
+  const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string}>) => {
     try {
       setLoading(true);
       // Fetch logs for this date
@@ -378,8 +377,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                 projectName: proj.name,
                 hours: log ? log.hours : 0,
                 logId: log ? log.id : undefined,
-                description: log ? log.description : '',
-                projectDescription: proj.description
+                description: log ? log.description : ''
             };
         });
 
@@ -393,8 +391,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     projectName: log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Proyecto Desconocido',
                     hours: log.hours,
                     logId: log.id,
-                    description: log.description || '',
-                    projectDescription: log.expand?.project?.description
+                    description: log.description || ''
                 });
             }
         });
@@ -410,8 +407,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     projectId: proj.id,
                     projectName: proj.name,
                     hours: 0,
-                    description: '',
-                    projectDescription: proj.description
+                    description: ''
                 };
             });
             setEntries(newEntries);
@@ -455,8 +451,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             projectId: proj.id,
             projectName: proj.name,
             hours: 0,
-            description: '',
-            projectDescription: proj.description
+            description: ''
         }
     ]);
     setShowAddProject(false);
@@ -593,6 +588,32 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
           </div>
         </div>
 
+        {/* Sección de consulta de proyectos */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Consultar Información de Proyecto:
+            </span>
+            <div className="flex flex-1 w-full sm:w-auto gap-2">
+                <select
+                    className="bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 flex-1 min-w-[200px] text-gray-800 dark:text-gray-200"
+                    value={selectedProjectToView}
+                    onChange={(e) => setSelectedProjectToView(e.target.value)}
+                >
+                    <option value="" disabled>-- Selecciona un proyecto --</option>
+                    {allProjects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+                <button
+                    onClick={() => setShowProjectDetails(true)}
+                    disabled={!selectedProjectToView}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                    Consultar
+                </button>
+            </div>
+        </div>
+
         {/* Content based on View Mode */}
         {isEditing ? (
         <>
@@ -635,11 +656,6 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                                     <span className="font-medium text-gray-800 dark:text-gray-200 block truncate" title={entry.projectName}>
                                         {entry.projectName}
                                     </span>
-                                    {entry.projectDescription && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2" title={entry.projectDescription}>
-                                            {entry.projectDescription}
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="flex flex-row md:contents w-full gap-3">
                                     <div className="w-24 md:w-auto md:col-span-2 relative">
@@ -912,6 +928,14 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             </div>
         )}
       </div>
+      
+      {/* Modal de Detalles del Proyecto */}
+      {showProjectDetails && selectedProjectToView && (
+        <ProjectReadOnlyModal
+          projectId={selectedProjectToView}
+          onClose={() => setShowProjectDetails(false)}
+        />
+      )}
     </div>
   );
 }
