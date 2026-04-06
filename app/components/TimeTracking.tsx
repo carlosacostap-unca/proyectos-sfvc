@@ -45,6 +45,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [projectSummary, setProjectSummary] = useState<Array<{projectId: string, projectName: string, totalHours: number}>>([]);
   const [allProjects, setAllProjects] = useState<Array<{id: string, name: string}>>([]);
   const [showAddProject, setShowAddProject] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   
   // Date range for summary
   const [summaryStartDate, setSummaryStartDate] = useState(() => {
@@ -54,11 +55,10 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   });
   const [summaryEndDate, setSummaryEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Helper to get last 10 working days
-  const getLast10WorkingDays = () => {
+  // Helper to get working days allowed for editing
+  const getAllowedWorkingDays = () => {
     const days = [];
     let current = new Date();
-    let count = 0;
     
     // Restriction date: March 2, 2026
     const restrictionDate = new Date('2026-03-02');
@@ -68,10 +68,17 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Use current iteration date
+    // Limit editing to 7 days previous
+    const minDate = new Date(today);
+    minDate.setDate(today.getDate() - 7);
+    minDate.setHours(0, 0, 0, 0);
+    
     let iterDate = new Date(current);
+    let count = 0;
 
-    while (count < 10) {
+    // We allow up to 10 days for admins or if we just want a hard limit,
+    // but the strict 7-calendar-day limit is applied to non-admins.
+    while (isAdmin ? count < 10 : iterDate >= minDate) {
       const day = iterDate.getDay();
       
       // Check restriction for non-admins
@@ -96,7 +103,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   };
 
   useEffect(() => {
-    setWorkingDays(getLast10WorkingDays());
+    setWorkingDays(getAllowedWorkingDays());
   }, [isAdmin]);
 
   // Initialize: Find personal record and assignments
@@ -450,9 +457,16 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const handleSave = async () => {
     if (!personalId) return;
 
+    const totalHours = entries.reduce((acc, entry) => acc + (Number(entry.hours) || 0), 0);
+    if (totalHours > 8) {
+      setFormError('No puedes registrar más de 8 horas en un solo día.');
+      return;
+    }
+
     try {
       setSaving(true);
       setSuccessMessage(null);
+      setFormError(null);
       
       const promises = entries.map(async (entry) => {
         // Only save if hours > 0 or if there was a log before (to update to 0 or delete?)
@@ -554,7 +568,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                 Registro de Horas
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {isEditing ? 'Carga tus horas de trabajo para el día seleccionado' : 'Visualiza los últimos 10 días laborales'}
+                {isEditing ? 'Carga tus horas de trabajo para el día seleccionado' : (isAdmin ? 'Visualiza los últimos 10 días laborales' : 'Visualiza y edita hasta 7 días anteriores')}
               </p>
             </div>
             
@@ -677,7 +691,13 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             {/* Footer */}
             <div className="p-6 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 flex justify-between items-center">
                 <div>
-                    {successMessage && (
+                    {formError && (
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm font-medium animate-fade-in">
+                            <AlertCircle size={18} />
+                            {formError}
+                        </div>
+                    )}
+                    {successMessage && !formError && (
                         <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium animate-fade-in">
                             <CheckCircle2 size={18} />
                             {successMessage}
