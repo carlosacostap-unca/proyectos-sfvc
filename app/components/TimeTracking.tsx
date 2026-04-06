@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
-import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { formatLocalDate, toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 
 interface TimeTrackingProps {
@@ -43,6 +43,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [projectSummary, setProjectSummary] = useState<Array<{projectId: string, projectName: string, totalHours: number}>>([]);
+  const [allProjects, setAllProjects] = useState<Array<{id: string, name: string}>>([]);
+  const [showAddProject, setShowAddProject] = useState(false);
   
   // Date range for summary
   const [summaryStartDate, setSummaryStartDate] = useState(() => {
@@ -106,7 +108,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         
         // 1. Fetch Assignments AND Owned Projects in parallel using email filter directly
         // This avoids issues where the personal record found by ID might not match the one in assignments
-        const [assignmentRecords, ownedProjects] = await Promise.all([
+        const [assignmentRecords, ownedProjects, allActiveProjects] = await Promise.all([
           pb.collection('project_assignments').getFullList<ProjectAssignment>({
             filter: `personal.email = "${userEmail}" && active = true`,
             expand: 'project,personal',
@@ -114,6 +116,9 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
           pb.collection('projects').getFullList<Project>({
             filter: `personal.email = "${userEmail}" && active = true`,
             expand: 'personal',
+          }),
+          pb.collection('projects').getFullList<Project>({
+            filter: `active = true`,
           })
         ]);
 
@@ -193,6 +198,13 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
 
         setProjectList(finalProjects);
         
+        // Save all active projects for the "Add occasional project" feature
+        setAllProjects(
+            allActiveProjects
+                .map(p => ({ id: p.id, name: p.system_name || p.code }))
+                .sort((a, b) => a.name.localeCompare(b.name))
+        );
+
         // Load logs for today (initial load)
         await loadLogsForDate(foundPersonalId, date, finalProjects);
 
@@ -335,9 +347,10 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       try {
         const logs = await pb.collection('work_logs').getFullList<WorkLog>({
           filter: `personal = "${pId}" && date >= "${selectedDate} 00:00:00" && date <= "${selectedDate} 23:59:59"`,
+          expand: 'project',
         });
 
-        // Map projects to entries
+        // Map assigned projects to entries
         const newEntries: ProjectTimeEntry[] = currentProjects.map(proj => {
             let log;
             if (proj.id === 'general') {
@@ -356,6 +369,21 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                 logId: log ? log.id : undefined,
                 description: log ? log.description : ''
             };
+        });
+
+        // Also add any log for a project that is NOT in currentProjects
+        logs.forEach(log => {
+            const pId = log.project || 'general';
+            if (!currentProjects.some(p => p.id === pId)) {
+                newEntries.push({
+                    assignmentId: `extra_${pId}`,
+                    projectId: pId,
+                    projectName: log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Proyecto Desconocido',
+                    hours: log.hours,
+                    logId: log.id,
+                    description: log.description || ''
+                });
+            }
         });
 
         setEntries(newEntries);
@@ -397,6 +425,26 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     const newEntries = [...entries];
     newEntries[index].description = value;
     setEntries(newEntries);
+  };
+
+  const handleAddExtraProject = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const pId = e.target.value;
+    if (!pId) return;
+    
+    const proj = allProjects.find(p => p.id === pId);
+    if (!proj) return;
+    
+    setEntries([
+        ...entries,
+        {
+            assignmentId: `extra_${pId}`,
+            projectId: proj.id,
+            projectName: proj.name,
+            hours: 0,
+            description: ''
+        }
+    ]);
+    setShowAddProject(false);
   };
 
   const handleSave = async () => {
@@ -585,6 +633,43 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                                 </div>
                             </div>
                         ))}
+                        
+                        {/* Botón para añadir aportes ocasionales a proyectos no asignados */}
+                        <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
+                            {!showAddProject ? (
+                                <button
+                                    onClick={() => setShowAddProject(true)}
+                                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition-colors"
+                                >
+                                    <Plus size={16} />
+                                    Añadir aporte ocasional a otro proyecto
+                                </button>
+                            ) : (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
+                                    <span className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Selecciona el proyecto:</span>
+                                    <select
+                                        className="bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 flex-1 w-full"
+                                        onChange={handleAddExtraProject}
+                                        defaultValue=""
+                                    >
+                                        <option value="" disabled>-- Elige un proyecto --</option>
+                                        {allProjects
+                                            .filter(p => !entries.some(e => e.projectId === p.id) && p.id !== 'general')
+                                            .map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))
+                                        }
+                                    </select>
+                                    <button 
+                                        onClick={() => setShowAddProject(false)}
+                                        className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
                     </div>
                 )}
             </div>

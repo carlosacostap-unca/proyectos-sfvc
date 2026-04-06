@@ -9,7 +9,7 @@ import ProgramList from "./components/ProgramList";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Users, Settings, Clock, Trash2, Upload, Layers } from "lucide-react";
+import { LogOut, Users, Settings, Clock, Trash2, Upload, Layers, Calendar } from "lucide-react";
 import { pb } from "@/lib/pocketbase";
 import UserManagementModal from "./components/UserManagementModal";
 import SettingsModal from "./components/SettingsModal";
@@ -19,7 +19,7 @@ export default function Home() {
   const router = useRouter();
   const [showUserModal, setShowUserModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'projects' | 'worklogs' | 'cleanup' | 'import' | 'programs'>('projects');
+  const [viewMode, setViewMode] = useState<'projects' | 'worklogs' | 'cleanup' | 'import' | 'programs' | 'my_hours'>('projects');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -81,6 +81,15 @@ export default function Home() {
 
             {isAdmin && (
               <>
+                <button
+                  onClick={() => setViewMode(viewMode === 'my_hours' ? 'projects' : 'my_hours')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${viewMode === 'my_hours' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700'}`}
+                  title={viewMode === 'my_hours' ? "Ver Proyectos" : "Cargar Mis Horas"}
+                >
+                  <Calendar size={18} />
+                  <span className="md:hidden">Mis Horas</span>
+                </button>
+
                 <button
                   onClick={() => setViewMode(viewMode === 'worklogs' ? 'projects' : 'worklogs')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${viewMode === 'worklogs' ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700'}`}
@@ -153,6 +162,7 @@ export default function Home() {
         viewMode === 'worklogs' ? <AdminWorkLogs onBack={() => setViewMode('projects')} /> :
         viewMode === 'cleanup' ? <AdminProjectCleanup onBack={() => setViewMode('projects')} /> :
         viewMode === 'programs' ? <ProgramList onBack={() => setViewMode('projects')} /> :
+        viewMode === 'my_hours' ? <WelcomeScreen user={user} /> :
         <AdminProjectImport onBack={() => setViewMode('projects')} />
       ) : (
         <WelcomeScreen user={user} />
