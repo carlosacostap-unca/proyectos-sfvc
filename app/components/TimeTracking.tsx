@@ -18,6 +18,7 @@ interface ProjectTimeEntry {
   hours: number;
   logId?: string; // If updating existing log
   description?: string;
+  projectDescription?: string;
 }
 
 interface GroupedLog {
@@ -34,7 +35,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [projectList, setProjectList] = useState<Array<{id: string, name: string, assignmentId: string}>>([]);
+  const [projectList, setProjectList] = useState<Array<{id: string, name: string, assignmentId: string, description?: string}>>([]);
   
   // New state for history view
   const [isEditing, setIsEditing] = useState(false); // Replaces viewMode
@@ -43,7 +44,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [projectSummary, setProjectSummary] = useState<Array<{projectId: string, projectName: string, totalHours: number}>>([]);
-  const [allProjects, setAllProjects] = useState<Array<{id: string, name: string}>>([]);
+  const [allProjects, setAllProjects] = useState<Array<{id: string, name: string, description?: string}>>([]);
   const [showAddProject, setShowAddProject] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   
@@ -163,7 +164,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         setPersonalId(foundPersonalId);
 
         // 3. Merge projects (avoiding duplicates if user is both assigned and owner)
-        const mergedProjects = new Map<string, {id: string, name: string, assignmentId: string}>();
+        const mergedProjects = new Map<string, {id: string, name: string, assignmentId: string, description?: string}>();
 
         // Add from assignments
         assignmentRecords.forEach(assignment => {
@@ -173,7 +174,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
              mergedProjects.set(project.id, {
                id: project.id,
                name: project.system_name || project.code,
-               assignmentId: assignment.id
+               assignmentId: assignment.id,
+               description: project.description
              });
            }
         });
@@ -184,7 +186,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             mergedProjects.set(project.id, {
               id: project.id,
               name: project.system_name || project.code,
-              assignmentId: `owner_${project.id}` // Virtual assignment ID
+              assignmentId: `owner_${project.id}`, // Virtual assignment ID
+              description: project.description
             });
           }
         });
@@ -195,7 +198,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         finalProjects.unshift({
             id: 'general',
             name: 'Sin Proyecto / Tareas Generales',
-            assignmentId: 'general'
+            assignmentId: 'general',
+            description: 'Horas dedicadas a tareas generales no asociadas a un proyecto específico'
         });
 
         if (finalProjects.length === 0) {
@@ -208,7 +212,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         // Save all active projects for the "Add occasional project" feature
         setAllProjects(
             allActiveProjects
-                .map(p => ({ id: p.id, name: p.system_name || p.code }))
+                .map(p => ({ id: p.id, name: p.system_name || p.code, description: p.description }))
                 .sort((a, b) => a.name.localeCompare(b.name))
         );
 
@@ -347,7 +351,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     }
   }, [isEditing, personalId, summaryStartDate, summaryEndDate, projectList]);
 
-  const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string}>) => {
+  const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string, description?: string}>) => {
     try {
       setLoading(true);
       // Fetch logs for this date
@@ -374,7 +378,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                 projectName: proj.name,
                 hours: log ? log.hours : 0,
                 logId: log ? log.id : undefined,
-                description: log ? log.description : ''
+                description: log ? log.description : '',
+                projectDescription: proj.description
             };
         });
 
@@ -388,7 +393,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     projectName: log.expand?.project ? (log.expand.project.system_name || log.expand.project.code) : 'Proyecto Desconocido',
                     hours: log.hours,
                     logId: log.id,
-                    description: log.description || ''
+                    description: log.description || '',
+                    projectDescription: log.expand?.project?.description
                 });
             }
         });
@@ -404,7 +410,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     projectId: proj.id,
                     projectName: proj.name,
                     hours: 0,
-                    description: ''
+                    description: '',
+                    projectDescription: proj.description
                 };
             });
             setEntries(newEntries);
@@ -448,7 +455,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             projectId: proj.id,
             projectName: proj.name,
             hours: 0,
-            description: ''
+            description: '',
+            projectDescription: proj.description
         }
     ]);
     setShowAddProject(false);
@@ -627,6 +635,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                                     <span className="font-medium text-gray-800 dark:text-gray-200 block truncate" title={entry.projectName}>
                                         {entry.projectName}
                                     </span>
+                                    {entry.projectDescription && (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2" title={entry.projectDescription}>
+                                            {entry.projectDescription}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex flex-row md:contents w-full gap-3">
                                     <div className="w-24 md:w-auto md:col-span-2 relative">
