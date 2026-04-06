@@ -142,21 +142,22 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
 
         if (!foundPersonalId) {
              // If no projects found, we might still want to check if a Personal record exists to give a better error
-             // But for now, if no assignments/owned projects, we just show empty state or error
              // Try one last check for personal record just to be sure
              try {
                  const personalCheck = await pb.collection('personal').getFirstListItem(`email = "${userEmail}"`);
                  if (personalCheck) {
-                     setPersonalId(personalCheck.id);
-                     setError('No tienes proyectos asignados actualmente.');
+                     foundPersonalId = personalCheck.id;
+                     // We intentionally don't set an error here anymore, so they can add occasional projects
                  } else {
                      setError('No se encontró un perfil de personal asociado a tu cuenta. Contacta al administrador.');
+                     setLoading(false);
+                     return;
                  }
              } catch (e) {
                  setError('No se encontró un perfil de personal asociado a tu cuenta. Contacta al administrador.');
+                 setLoading(false);
+                 return;
              }
-             setLoading(false);
-             return;
         }
 
         setPersonalId(foundPersonalId);
@@ -198,12 +199,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         });
 
         if (finalProjects.length === 0) {
-          setError('No tienes proyectos asignados actualmente.');
-          setLoading(false);
-          return;
+          // If no projects found, don't show error, just let them see the empty list + the add occasional project button
+          setProjectList([]);
+        } else {
+          setProjectList(finalProjects);
         }
-
-        setProjectList(finalProjects);
         
         // Save all active projects for the "Add occasional project" feature
         setAllProjects(
@@ -601,9 +601,17 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             </div>
 
             <div className="p-6">
-                {entries.length === 0 ? (
+                {entries.length === 0 && !showAddProject ? (
                     <div className="text-center py-10 text-gray-500">
-                        <p>No tienes asignaciones activas para registrar horas.</p>
+                        <p>Aún no tienes proyectos para registrar horas.</p>
+                        <p className="text-sm mt-2 mb-4">Puedes añadir un aporte ocasional debajo.</p>
+                        <button
+                            onClick={() => setShowAddProject(true)}
+                            className="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition-colors border border-indigo-200 dark:border-indigo-800 rounded-lg px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                        >
+                            <Plus size={16} />
+                            Añadir aporte ocasional a un proyecto
+                        </button>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -651,13 +659,15 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                         {/* Botón para añadir aportes ocasionales a proyectos no asignados */}
                         <div className="pt-4 border-t border-gray-100 dark:border-zinc-800">
                             {!showAddProject ? (
-                                <button
-                                    onClick={() => setShowAddProject(true)}
-                                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition-colors"
-                                >
-                                    <Plus size={16} />
-                                    Añadir aporte ocasional a otro proyecto
-                                </button>
+                                entries.length > 0 && (
+                                    <button
+                                        onClick={() => setShowAddProject(true)}
+                                        className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition-colors"
+                                    >
+                                        <Plus size={16} />
+                                        Añadir aporte ocasional a otro proyecto
+                                    </button>
+                                )
                             ) : (
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
                                     <span className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Selecciona el proyecto:</span>
