@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { formatLocalDate } from '@/app/utils/date';
-import { Project } from '@/app/types';
+import { Project, ProjectAssignment, ProjectTimelineItem } from '@/app/types';
 import { 
   X,
   Calendar, 
@@ -18,7 +18,9 @@ import {
   Layers,
   Shield,
   Folder,
-  Database
+  Database,
+  User,
+  Milestone
 } from 'lucide-react';
 
 interface ProjectReadOnlyModalProps {
@@ -34,26 +36,42 @@ const ensureExpandList = (data: any): any[] => {
 
 export default function ProjectReadOnlyModal({ projectId, onClose }: ProjectReadOnlyModalProps) {
   const [project, setProject] = useState<Project | null>(null);
+  const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
+  const [phases, setPhases] = useState<ProjectTimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchProject = async () => {
+    const fetchProjectData = async () => {
       try {
         setLoading(true);
-        const record = await pb.collection('projects').getOne<Project>(projectId, {
-          expand: 'requesting_area,program,personal,frontend_tech,backend_tech,database,status,project_type,shift',
-        });
-        setProject(record);
+        const [projectRecord, assignmentsRecord, phasesRecord] = await Promise.all([
+          pb.collection('projects').getOne<Project>(projectId, {
+            expand: 'requesting_area,program,personal,frontend_tech,backend_tech,database,status,project_type,shift',
+          }),
+          pb.collection('project_assignments').getFullList<ProjectAssignment>({
+            filter: `project = "${projectId}" && active = true`,
+            expand: 'personal,roles',
+            sort: '-start_date'
+          }),
+          pb.collection('project_timeline').getFullList<ProjectTimelineItem>({
+            filter: `project = "${projectId}"`,
+            expand: 'phase,status,responsible',
+            sort: 'planned_start_date'
+          })
+        ]);
+        setProject(projectRecord);
+        setAssignments(assignmentsRecord);
+        setPhases(phasesRecord);
       } catch (err: any) {
-        console.error('Error fetching project:', err);
-        setError('No se pudo cargar el proyecto. Puede que no exista o haya sido eliminado.');
+        console.error('Error fetching project data:', err);
+        setError('No se pudo cargar la información del proyecto.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProject();
+    fetchProjectData();
   }, [projectId]);
 
   return (
@@ -165,6 +183,15 @@ export default function ProjectReadOnlyModal({ projectId, onClose }: ProjectRead
                     Organización
                   </h4>
                   <div className="space-y-3">
+                    <div>
+                      <span className="text-xs text-gray-500 uppercase tracking-wide block mb-1">Responsable / Líder</span>
+                      <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+                        <User size={14} className="text-gray-400" />
+                        <span className="font-medium">
+                          {project.expand?.personal ? `${project.expand.personal.surname}, ${project.expand.personal.name}` : '-'}
+                        </span>
+                      </div>
+                    </div>
                     <div>
                       <span className="text-xs text-gray-500 uppercase tracking-wide block mb-1">Área Solicitante</span>
                       <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
@@ -281,6 +308,91 @@ export default function ProjectReadOnlyModal({ projectId, onClose }: ProjectRead
                     <div className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400" dangerouslySetInnerHTML={{ __html: project.expected_benefit }} />
                   </div>
                 )}
+
+                {/* Fases */}
+                <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 p-5">
+                  <h4 className="text-base font-semibold flex items-center gap-2 mb-4 text-gray-900 dark:text-white border-b border-gray-100 dark:border-zinc-800 pb-2">
+                    <Milestone size={18} className="text-emerald-500" /> Fases del Proyecto
+                  </h4>
+                  {phases.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-800/50">
+                          <tr>
+                            <th className="px-4 py-2">Fase</th>
+                            <th className="px-4 py-2">Estado</th>
+                            <th className="px-4 py-2">Responsable</th>
+                            <th className="px-4 py-2">Inicio Plan.</th>
+                            <th className="px-4 py-2">Fin Plan.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+                          {phases.map(p => (
+                            <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
+                              <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">
+                                {p.expand?.phase?.name || '-'}
+                              </td>
+                              <td className="px-4 py-2">
+                                <span className="px-2 py-1 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 text-xs rounded border border-gray-200 dark:border-zinc-700">
+                                  {p.expand?.status?.name || '-'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                                {p.expand?.responsible ? `${p.expand.responsible.surname}, ${p.expand.responsible.name}` : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                                {p.planned_start_date ? formatLocalDate(p.planned_start_date) : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                                {p.planned_end_date ? formatLocalDate(p.planned_end_date) : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No hay fases registradas.</p>
+                  )}
+                </div>
+
+                {/* Asignaciones */}
+                <div className="md:col-span-2 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 p-5">
+                  <h4 className="text-base font-semibold flex items-center gap-2 mb-4 text-gray-900 dark:text-white border-b border-gray-100 dark:border-zinc-800 pb-2">
+                    <Users size={18} className="text-indigo-500" /> Personal Asignado
+                  </h4>
+                  {assignments.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-800/50">
+                          <tr>
+                            <th className="px-4 py-2">Personal</th>
+                            <th className="px-4 py-2">Roles</th>
+                            <th className="px-4 py-2">Desde</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+                          {assignments.map(a => (
+                            <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30">
+                              <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">
+                                {a.expand?.personal ? `${a.expand.personal.surname}, ${a.expand.personal.name}` : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                                {a.expand?.roles ? a.expand.roles.map(r => r.name).join(', ') : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                                {a.start_date ? formatLocalDate(a.start_date) : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No hay personal asignado actualmente.</p>
+                  )}
+                </div>
+
               </div>
             </div>
           )}
