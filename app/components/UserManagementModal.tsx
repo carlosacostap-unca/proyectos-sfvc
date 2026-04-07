@@ -97,7 +97,6 @@ export default function UserManagementModal({ onClose }: Props) {
         });
       } else if (editingUser) {
         await pb.collection('users').update(editingUser.id, {
-          email: formData.email,
           name: formData.name,
           isAdmin: formData.isAdmin,
           active: formData.active,
@@ -277,10 +276,17 @@ export default function UserManagementModal({ onClose }: Props) {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-zinc-800 dark:border-zinc-700"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-zinc-800 dark:border-zinc-700 ${!isCreating ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-zinc-800/50' : ''}`}
                     placeholder="usuario@ejemplo.com"
                     required
+                    disabled={!isCreating}
+                    title={!isCreating ? "El email no se puede modificar para cuentas existentes por seguridad. Elimine y vuelva a crear el usuario si necesita cambiarlo." : ""}
                   />
+                  {!isCreating && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      El email no puede modificarse en cuentas existentes.
+                    </p>
+                  )}
                 </div>
 
                 <div>
