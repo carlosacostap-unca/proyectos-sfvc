@@ -123,7 +123,10 @@ export default function UserManagementModal({ onClose }: Props) {
         if (details) {
           errorMsg = `Error: ${details}`;
           if (details.includes('Contraseña antigua')) {
-            errorMsg += ' (Sugerencia: Deshabilite "Require old password" en la configuración de la colección users en PocketBase para permitir cambios de email sin contraseña)';
+            errorMsg += ' (Sugerencia: Deshabilite "Require old password" en la configuración de la colección users en PocketBase para permitir cambios sin contraseña)';
+          }
+          if (details.includes('Values don\'t match') && details.includes('Email')) {
+            errorMsg += ' (Sugerencia: Habilite "Email/Password auth" en las opciones de la colección users en PocketBase para permitir modificar el email)';
           }
         }
       }
