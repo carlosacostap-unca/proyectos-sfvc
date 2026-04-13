@@ -25,6 +25,7 @@ export default function ProjectList() {
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [programFilter, setProgramFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
+  const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
 
   const fetchProjects = async () => {
     try {
@@ -122,8 +123,16 @@ export default function ProjectList() {
         ? project.active !== false 
         : project.active === false;
 
-    return matchesSearch && matchesStatus && matchesType && matchesActive && matchesProgram;
+    const matchesYear = yearFilter ? project.year?.toString() === yearFilter : true;
+
+    return matchesSearch && matchesStatus && matchesType && matchesActive && matchesProgram && matchesYear;
   });
+
+  // Extract unique years from projects for the filter dropdown
+  const availableYears = Array.from(new Set([
+    new Date().getFullYear().toString(),
+    ...projects.map(p => p.year?.toString()).filter(Boolean)
+  ])).sort((a, b) => Number(b) - Number(a));
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -131,6 +140,7 @@ export default function ProjectList() {
     setTypeFilter('');
     setProgramFilter('');
     setActiveFilter('');
+    setYearFilter('');
   };
 
   if (showWizard) {
@@ -176,84 +186,96 @@ export default function ProjectList() {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white dark:bg-zinc-800 p-4 rounded-xl shadow-sm border dark:border-zinc-700 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-            
-            {/* Search Input */}
-            <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                    type="text" 
-                    placeholder="Buscar por nombre o código..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                />
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
-                <select 
-                    value={activeFilter}
-                    onChange={(e) => setActiveFilter(e.target.value)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                    <option value="">Todos (Activos/Inactivos)</option>
-                    <option value="true">Activos</option>
-                    <option value="false">Inactivos</option>
-                </select>
-
-                <select 
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                    <option value="">Todos los Estados</option>
-                    {statuses.map(status => (
-                        <option key={status.id} value={status.id}>{status.name}</option>
-                    ))}
-                </select>
-
-                <select 
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                    <option value="">Todos los Tipos</option>
-                    {projectTypes.map(type => (
-                        <option key={type.id} value={type.id}>{type.name}</option>
-                    ))}
-                </select>
-
-                <select 
-                    value={programFilter}
-                    onChange={(e) => setProgramFilter(e.target.value)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                    <option value="">Todos los Programas</option>
-                    {programs.map(prog => (
-                        <option key={prog.id} value={prog.id}>{prog.name}</option>
-                    ))}
-                </select>
-
-                {(searchTerm || statusFilter || typeFilter || programFilter) && (
-                    <button 
-                        onClick={clearFilters}
-                        className="w-full sm:w-auto flex items-center justify-center gap-1 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    >
-                        <X size={16} />
-                        Limpiar
-                    </button>
-                )}
-            </div>
+      <div className="bg-white dark:bg-zinc-800 p-5 rounded-xl shadow-sm border dark:border-zinc-700 space-y-4">
+        
+        {/* Search Input */}
+        <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input 
+                type="text" 
+                placeholder="Buscar proyecto por nombre o código..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-800 dark:text-gray-200 shadow-inner-sm"
+            />
         </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <select 
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 dark:text-gray-300"
+            >
+                <option value="">Todos los Años</option>
+                {availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                ))}
+            </select>
+
+            <select 
+                value={activeFilter}
+                onChange={(e) => setActiveFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 dark:text-gray-300"
+            >
+                <option value="">Todos (Activos/Inactivos)</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+            </select>
+
+            <select 
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 dark:text-gray-300"
+            >
+                <option value="">Todos los Estados</option>
+                {statuses.map(status => (
+                    <option key={status.id} value={status.id}>{status.name}</option>
+                ))}
+            </select>
+
+            <select 
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 dark:text-gray-300"
+            >
+                <option value="">Todos los Tipos</option>
+                {projectTypes.map(type => (
+                    <option key={type.id} value={type.id}>{type.name}</option>
+                ))}
+            </select>
+
+            <select 
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 dark:text-gray-300"
+            >
+                <option value="">Todos los Programas</option>
+                {programs.map(prog => (
+                    <option key={prog.id} value={prog.id}>{prog.name}</option>
+                ))}
+            </select>
+        </div>
+
+        {/* Clear Filters Button */}
+        {(searchTerm || statusFilter || typeFilter || programFilter || yearFilter !== '') && (
+            <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-zinc-700/50">
+                <button 
+                    onClick={clearFilters}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                    <X size={16} />
+                    Limpiar todos los filtros
+                </button>
+            </div>
+        )}
       </div>
 
       {/* Project List */}
       <section>
         <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                {searchTerm || statusFilter || typeFilter || programFilter ? 'Resultados de la búsqueda' : 'Listado Reciente'}
+                {searchTerm || statusFilter || typeFilter || programFilter || yearFilter !== '' ? 'Resultados de la búsqueda' : 'Listado Reciente'}
                 <span className="ml-2 text-sm font-normal text-gray-500">
                     ({filteredProjects.length} {filteredProjects.length === 1 ? 'proyecto' : 'proyectos'})
                 </span>
