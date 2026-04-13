@@ -13,7 +13,12 @@ interface AdminWorkLogsProps {
 export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
     const [personals, setPersonals] = useState<Personal[]>([]);
     const [selectedPersonalId, setSelectedPersonalId] = useState<string>('');
-    const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date())); // YYYY-MM-DD
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        return `${y}-${m}`;
+    }); // YYYY-MM
     const [logs, setLogs] = useState<WorkLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [totalHours, setTotalHours] = useState(0);
@@ -99,8 +104,14 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
 
             setLoading(true);
             try {
+                const [year, month] = selectedDate.split('-').map(Number);
+                const startDate = `${selectedDate}-01`;
+                // Calculate last day of month
+                const lastDay = new Date(year, month, 0).getDate();
+                const endDate = `${selectedDate}-${String(lastDay).padStart(2, '0')}`;
+
                 const records = await pb.collection('work_logs').getList<WorkLog>(1, 500, {
-                    filter: `personal = "${selectedPersonalId}" && date >= "${getLocalDayStartUTC(selectedDate)}" && date <= "${getLocalDayEndUTC(selectedDate)}"`,
+                    filter: `personal = "${selectedPersonalId}" && date >= "${getLocalDayStartUTC(startDate)}" && date <= "${getLocalDayEndUTC(endDate)}"`,
                     sort: '-date',
                     expand: 'project'
                 });
@@ -131,30 +142,24 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
             </div>
 
             <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Usuario</label>
-                        <select 
-                            value={selectedPersonalId} 
-                            onChange={(e) => setSelectedPersonalId(e.target.value)}
-                            className="w-full rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
-                        >
-                            <option value="">Seleccionar Usuario</option>
-                            {personals.map(p => (
-                                <option key={p.id} value={p.id}>{p.surname}, {p.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                <div className="flex flex-col md:flex-row gap-4 mb-6">
+                    <select 
+                        value={selectedPersonalId} 
+                        onChange={(e) => setSelectedPersonalId(e.target.value)}
+                        className="flex-1 rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
+                    >
+                        <option value="">Seleccionar Usuario</option>
+                        {personals.map(p => (
+                            <option key={p.id} value={p.id}>{p.surname}, {p.name}</option>
+                        ))}
+                    </select>
                     
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Día</label>
-                        <input 
-                            type="date" 
-                            value={selectedDate} 
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="w-full rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
-                        />
-                    </div>
+                    <input 
+                        type="month" 
+                        value={selectedDate} 
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="flex-1 rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
+                    />
                 </div>
 
                 {/* Summary */}
