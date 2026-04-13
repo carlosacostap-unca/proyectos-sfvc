@@ -108,7 +108,7 @@ export default function EditProjectPage() {
         const newEndDay = toLocalDateString(end);
         
         if (currentEndDay !== newEndDay) {
-          setFormData(prev => ({ ...prev, estimated_end_date: end.toISOString() }));
+          setFormData(prev => ({ ...prev, estimated_end_date: fromLocalDateString(newEndDay) }));
         }
       }
     }

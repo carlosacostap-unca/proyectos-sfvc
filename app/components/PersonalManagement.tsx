@@ -9,6 +9,7 @@ import {
 import { pb } from '@/lib/pocketbase';
 import { Personal, RoleItem, ShiftItem, StaffStatusItem } from '@/app/types';
 import { toast } from 'sonner';
+import { toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 
 export default function PersonalManagement() {
   const [personal, setPersonal] = useState<Personal[]>([]);
@@ -32,7 +33,7 @@ export default function PersonalManagement() {
     shift: [], // Array for multiple selection
     main_role: '',
     secondary_role: '',
-    join_date: new Date().toISOString().split('T')[0],
+    join_date: toLocalDateString(new Date()),
     observations: ''
   });
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -109,7 +110,7 @@ export default function PersonalManagement() {
       shift: [],
       main_role: '',
       secondary_role: '',
-      join_date: new Date().toISOString().split('T')[0],
+      join_date: toLocalDateString(new Date()),
       observations: ''
     });
     setCvFile(null);
@@ -132,7 +133,7 @@ export default function PersonalManagement() {
       main_role: item.main_role || '',
       secondary_role: item.secondary_role || '',
       // Safe date parsing
-      join_date: item.join_date ? new Date(item.join_date).toISOString().split('T')[0] : '',
+      join_date: item.join_date ? toLocalDateString(item.join_date) : '',
       observations: item.observations || '',
       cv: item.cv || ''
     });
@@ -165,7 +166,9 @@ export default function PersonalManagement() {
         }
 
         if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
+          if (key === 'join_date' && typeof value === 'string' && value.length > 0) {
+            data.append(key, fromLocalDateString(value));
+          } else if (Array.isArray(value)) {
             // Handle array fields (like shift)
             value.forEach((v) => data.append(key, v));
           } else {

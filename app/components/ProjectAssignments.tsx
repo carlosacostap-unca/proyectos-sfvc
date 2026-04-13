@@ -9,12 +9,14 @@ import { toLocalDateString, fromLocalDateString, formatLocalDate } from '@/app/u
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, Personal, RoleItem } from '@/app/types';
 import { toast } from 'sonner';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 interface ProjectAssignmentsProps {
   projectId: string;
 }
 
 export default function ProjectAssignments({ projectId }: ProjectAssignmentsProps) {
+  const { isAdmin } = useAuth();
   const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
   const [personalList, setPersonalList] = useState<Personal[]>([]);
   const [rolesList, setRolesList] = useState<RoleItem[]>([]);
@@ -175,7 +177,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
           <Briefcase className="text-indigo-600" size={24} />
           Asignaciones de Personal
         </h2>
-        {!isEditing && (
+        {isAdmin && !isEditing && (
           <button
             onClick={() => setIsEditing(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"
@@ -424,32 +426,34 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleEdit(item);
-                      }}
-                      className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDelete(item.id);
-                      }}
-                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleEdit(item);
+                        }}
+                        className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(item.id);
+                        }}
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -458,7 +462,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
           <div className="text-center py-10 bg-gray-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-gray-200 dark:border-zinc-700">
             <Briefcase className="mx-auto text-gray-300 dark:text-zinc-600 mb-3" size={48} />
             <p className="text-gray-500 dark:text-gray-400">No hay personal asignado a este proyecto</p>
-            {!isEditing && (
+            {isAdmin && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="mt-4 px-4 py-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg text-sm font-medium transition-colors"

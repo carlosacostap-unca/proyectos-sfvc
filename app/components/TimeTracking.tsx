@@ -5,7 +5,7 @@ import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
 import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { formatLocalDate, toLocalDateString, fromLocalDateString, getLocalDayStartUTC, getLocalDayEndUTC } from '@/app/utils/date';
-import ProjectReadOnlyModal from './ProjectReadOnlyModal';
+import { useRouter } from 'next/navigation';
 
 interface TimeTrackingProps {
   userEmail: string;
@@ -48,20 +48,45 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [showAddProject, setShowAddProject] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedProjectToView, setSelectedProjectToView] = useState<string>('');
-  const [showProjectDetails, setShowProjectDetails] = useState(false);
+  const router = useRouter();
   
   // Date range for summary
   const [summaryStartDate, setSummaryStartDate] = useState(() => {
       const d = new Date();
       d.setDate(1); // First day of current month
-      return d.toISOString().split('T')[0];
+      return toLocalDateString(d);
   });
-  const [summaryEndDate, setSummaryEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [summaryEndDate, setSummaryEndDate] = useState(toLocalDateString(new Date()));
+
+  // Admin user selection
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(userEmail);
+  const [userList, setUserList] = useState<Array<{email: string, name: string}>>([]);
+
+  // Load user list for admins
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (isAdmin) {
+        try {
+          const records = await pb.collection('personal').getFullList<Personal>({
+            filter: 'status.active = true',
+            sort: 'surname,name',
+          });
+          setUserList(records.map(r => ({
+            email: r.email,
+            name: r.email === userEmail ? `${r.surname}, ${r.name} (Yo)` : `${r.surname}, ${r.name}`
+          })));
+        } catch (err) {
+          console.error('Error loading users list:', err);
+        }
+      }
+    };
+    loadUsers();
+  }, [isAdmin, userEmail]);
 
   // Helper to get working days allowed for editing
   const getAllowedWorkingDays = () => {
     const days = [];
-    let current = new Date();
+    const current = new Date();
     
     // Restriction date: March 2, 2026
     const restrictionDate = new Date('2026-03-02');
@@ -71,17 +96,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Limit editing to 7 days previous
-    const minDate = new Date(today);
-    minDate.setDate(today.getDate() - 7);
-    minDate.setHours(0, 0, 0, 0);
-    
-    let iterDate = new Date(current);
+    const iterDate = new Date(current);
     let count = 0;
 
-    // We allow up to 10 days for admins or if we just want a hard limit,
-    // but the strict 7-calendar-day limit is applied to non-admins.
-    while (isAdmin ? count < 10 : iterDate >= minDate) {
+    // We only allow 2 calendar days (today and yesterday) for everyone.
+    while (count < 2) {
       const day = iterDate.getDay();
       
       // Check restriction for non-admins
@@ -120,11 +139,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         // This avoids issues where the personal record found by ID might not match the one in assignments
         const [assignmentRecords, ownedProjects, allActiveProjects] = await Promise.all([
           pb.collection('project_assignments').getFullList<ProjectAssignment>({
-            filter: `personal.email = "${userEmail}" && active = true`,
+            filter: `personal.email = "${selectedUserEmail}" && active = true`,
             expand: 'project,personal',
           }),
           pb.collection('projects').getFullList<Project>({
-            filter: `personal.email = "${userEmail}" && active = true`,
+            filter: `personal.email = "${selectedUserEmail}" && active = true`,
             expand: 'personal',
           }),
           pb.collection('projects').getFullList<Project>({
@@ -147,17 +166,17 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
              // If no projects found, we might still want to check if a Personal record exists to give a better error
              // Try one last check for personal record just to be sure
              try {
-                 const personalCheck = await pb.collection('personal').getFirstListItem(`email = "${userEmail}"`);
+                 const personalCheck = await pb.collection('personal').getFirstListItem(`email = "${selectedUserEmail}"`);
                  if (personalCheck) {
                      foundPersonalId = personalCheck.id;
                      // We intentionally don't set an error here anymore, so they can add occasional projects
                  } else {
-                     setError('No se encontró un perfil de personal asociado a tu cuenta. Contacta al administrador.');
+                     setError(`No se encontró un perfil de personal asociado a la cuenta (${selectedUserEmail}). Contacta al administrador.`);
                      setLoading(false);
                      return;
                  }
              } catch (e) {
-                 setError('No se encontró un perfil de personal asociado a tu cuenta. Contacta al administrador.');
+                 setError(`No se encontró un perfil de personal asociado a la cuenta (${selectedUserEmail}). Contacta al administrador.`);
                  setLoading(false);
                  return;
              }
@@ -226,10 +245,10 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       }
     };
 
-    if (userEmail) {
+    if (selectedUserEmail) {
       init();
     }
-  }, [userEmail]);
+  }, [selectedUserEmail]); // Removed date, as date change is handled by the other useEffect
 
   // When date changes, reload logs
   useEffect(() => {
@@ -571,20 +590,38 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                 Registro de Horas
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {isEditing ? 'Carga tus horas de trabajo para el día seleccionado' : (isAdmin ? 'Visualiza los últimos 10 días laborales' : 'Visualiza y edita hasta 7 días anteriores')}
+                {isEditing ? 'Carga las horas de trabajo para el día seleccionado' : 'Visualiza y edita el registro de horas'}
               </p>
             </div>
             
-            {isEditing && (
-                <button 
-                    onClick={handleBackToHistory}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
-                >
-                    <ArrowLeft size={16} />
-                    Volver
-                </button>
-            )}
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              {isAdmin && (
+                <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 pl-2">Usuario:</span>
+                  <select
+                    className="bg-transparent border-none text-sm font-medium text-indigo-700 dark:text-indigo-400 focus:ring-0 cursor-pointer pr-8 py-1 dark:bg-zinc-800"
+                    value={selectedUserEmail}
+                    onChange={(e) => setSelectedUserEmail(e.target.value)}
+                  >
+                    {userList.map(u => (
+                      <option key={u.email} value={u.email} className="bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-200">
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
+              {isEditing && (
+                  <button 
+                      onClick={handleBackToHistory}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+                  >
+                      <ArrowLeft size={16} />
+                      Volver
+                  </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -605,7 +642,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     ))}
                 </select>
                 <button
-                    onClick={() => setShowProjectDetails(true)}
+                    onClick={() => router.push('/projects/' + selectedProjectToView)}
                     disabled={!selectedProjectToView}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
@@ -663,7 +700,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                                         <input 
                                             type="number" 
                                             min="0" 
-                                            max="24" 
+                                            max="8" 
                                             step="0.5"
                                             value={entry.hours || ''}
                                             placeholder="0"
@@ -928,14 +965,6 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             </div>
         )}
       </div>
-      
-      {/* Modal de Detalles del Proyecto */}
-      {showProjectDetails && selectedProjectToView && (
-        <ProjectReadOnlyModal
-          projectId={selectedProjectToView}
-          onClose={() => setShowProjectDetails(false)}
-        />
-      )}
     </div>
   );
 }

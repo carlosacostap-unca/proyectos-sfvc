@@ -5,6 +5,7 @@ import { pb } from '@/lib/pocketbase';
 import { Project, RequestingArea, ProjectStatusItem, ProjectTypeItem, ShiftItem, TechItem, Personal } from '@/app/types';
 import { Upload, ArrowLeft, Loader2, Check, AlertTriangle, X, Save, FileText, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { toLocalDateString, formatLocalDate, fromLocalDateString } from '@/app/utils/date';
 
 interface AdminProjectImportProps {
     onBack: () => void;
@@ -284,8 +285,8 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                 };
 
                 // Only include dates if they are valid strings
-                if (p.start_date) payload.start_date = p.start_date;
-                if (p.estimated_end_date) payload.estimated_end_date = p.estimated_end_date;
+                if (p.start_date) payload.start_date = fromLocalDateString(p.start_date);
+                if (p.estimated_end_date) payload.estimated_end_date = fromLocalDateString(p.estimated_end_date);
 
                 await pb.collection('projects').create(payload);
 

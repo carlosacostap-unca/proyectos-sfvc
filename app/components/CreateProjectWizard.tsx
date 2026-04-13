@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Check, ChevronDown, ChevronUp, X, Sparkles, Search, Briefcase, Plus, Edit2, Trash2, Calendar, Clock, User, Save } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem, ShiftItem, RoleItem, Program } from '@/app/types';
+import { fromLocalDateString, toLocalDateString, formatLocalDate } from '@/app/utils/date';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -154,11 +155,11 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   // Auto-calculate end date based on start date and duration
   useEffect(() => {
     if (formData.start_date && (formData.estimated_duration || formData.estimated_duration === 0)) {
-      const start = new Date(formData.start_date);
+      const start = new Date(`${formData.start_date}T00:00:00`);
       if (!isNaN(start.getTime())) {
         const end = new Date(start);
         end.setMonth(end.getMonth() + Number(formData.estimated_duration));
-        const endString = end.toISOString().split('T')[0];
+        const endString = toLocalDateString(end);
         // Only update if different to avoid loops (though with primitive check it's fine)
         if (formData.estimated_end_date !== endString) {
           setFormData(prev => ({ ...prev, estimated_end_date: endString }));
@@ -534,10 +535,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       
       // Convert dates to proper ISO strings with local timezone offset before saving
       if (projectData.start_date) {
-        projectData.start_date = new Date(`${projectData.start_date}T00:00:00`).toISOString();
+        projectData.start_date = fromLocalDateString(projectData.start_date);
       }
       if (projectData.estimated_end_date) {
-        projectData.estimated_end_date = new Date(`${projectData.estimated_end_date}T00:00:00`).toISOString();
+        projectData.estimated_end_date = fromLocalDateString(projectData.estimated_end_date);
       }
 
       // requestKey: null ensures this request is never cancelled by auto-cancellation
@@ -549,8 +550,8 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           pb.collection('project_assignments').create({
             project: newProject.id,
             personal: assignment.personal,
-            start_date: assignment.start_date ? new Date(`${assignment.start_date}T00:00:00`).toISOString() : null,
-            end_date: assignment.end_date ? new Date(`${assignment.end_date}T00:00:00`).toISOString() : null,
+            start_date: assignment.start_date ? fromLocalDateString(assignment.start_date) : null,
+            end_date: assignment.end_date ? fromLocalDateString(assignment.end_date) : null,
             roles: assignment.roles,
             active: assignment.active,
           })
@@ -927,12 +928,12 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
                             <div className="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400">
                               <div className="flex items-center gap-2">
                                 <Calendar size={14} className="text-gray-400" />
-                                <span>Desde: {new Date(item.start_date).toLocaleDateString('es-ES')}</span>
+                                <span>Desde: {formatLocalDate(item.start_date)}</span>
                               </div>
                               {item.end_date && (
                                 <div className="flex items-center gap-2">
                                   <Clock size={14} className="text-gray-400" />
-                                  <span>Hasta: {new Date(item.end_date).toLocaleDateString('es-ES')}</span>
+                                  <span>Hasta: {formatLocalDate(item.end_date)}</span>
                                 </div>
                               )}
                             </div>

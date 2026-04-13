@@ -9,12 +9,14 @@ import { pb } from '@/lib/pocketbase';
 import { ProjectTimelineItem, Personal, PhaseItem, PhaseStatusItem } from '@/app/types';
 import { toast } from 'sonner';
 import { toLocalDateString, fromLocalDateString, formatLocalDate } from '@/app/utils/date';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 interface ProjectPhasesProps {
   projectId: string;
 }
 
 export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
+  const { isAdmin } = useAuth();
   const [timelineItems, setTimelineItems] = useState<ProjectTimelineItem[]>([]);
   const [phasesList, setPhasesList] = useState<PhaseItem[]>([]);
   const [statusesList, setStatusesList] = useState<PhaseStatusItem[]>([]);
@@ -209,7 +211,7 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
           <Milestone size={20} className="text-orange-500" />
           Fases del Proyecto
         </h3>
-        {!isEditing && (
+        {isAdmin && !isEditing && (
           <button
             onClick={() => setIsEditing(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-medium transition-colors dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 dark:text-indigo-400"
@@ -453,22 +455,24 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-start">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-start">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

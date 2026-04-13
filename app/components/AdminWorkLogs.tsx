@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { Personal, WorkLog } from '@/app/types';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { getLocalDayStartUTC, getLocalDayEndUTC, formatLocalDate } from '@/app/utils/date';
+import { Loader2, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
+import { getLocalDayStartUTC, getLocalDayEndUTC, formatLocalDate, toLocalDateString } from '@/app/utils/date';
 
 interface AdminWorkLogsProps {
     onBack: () => void;
@@ -13,10 +13,62 @@ interface AdminWorkLogsProps {
 export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
     const [personals, setPersonals] = useState<Personal[]>([]);
     const [selectedPersonalId, setSelectedPersonalId] = useState<string>('');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date())); // YYYY-MM-DD
     const [logs, setLogs] = useState<WorkLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [totalHours, setTotalHours] = useState(0);
+    const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+
+    const groupedLogs = useMemo(() => {
+        const groups: Record<string, { dateKey: string, displayDate: string, totalHours: number, logs: WorkLog[] }> = {};
+        
+        logs.forEach(log => {
+            // Usa la utilidad que convierte de UTC a fecha local (YYYY-MM-DD)
+            let dateKey = '';
+            if (log.date) {
+                dateKey = toLocalDateString(new Date(log.date));
+            }
+            if (!dateKey) return;
+
+            if (!groups[dateKey]) {
+                let displayDate = dateKey;
+                try {
+                    const [y, m, d] = dateKey.split('-').map(Number);
+                    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                        const dateObj = new Date(y, m - 1, d);
+                        if (!isNaN(dateObj.getTime())) {
+                            const formatted = formatLocalDate(dateObj, {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            });
+                            displayDate = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Date formatting error:', e);
+                }
+
+                groups[dateKey] = { dateKey, displayDate, totalHours: 0, logs: [] };
+            }
+            groups[dateKey].totalHours += log.hours;
+            groups[dateKey].logs.push(log);
+        });
+
+        // Ordenar por fecha descendente
+        return Object.values(groups).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    }, [logs]);
+
+    const toggleDateExpand = (dateKey: string) => {
+        const newExpanded = new Set(expandedDates);
+        if (newExpanded.has(dateKey)) {
+            newExpanded.delete(dateKey);
+        } else {
+            newExpanded.add(dateKey);
+        }
+        setExpandedDates(newExpanded);
+    };
 
     // Fetch personals
     useEffect(() => {
@@ -47,14 +99,8 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
 
             setLoading(true);
             try {
-                const [year, month] = selectedDate.split('-').map(Number);
-                const startDate = `${selectedDate}-01`;
-                // Calculate last day of month
-                const lastDay = new Date(year, month, 0).getDate();
-                const endDate = `${selectedDate}-${String(lastDay).padStart(2, '0')}`;
-
                 const records = await pb.collection('work_logs').getList<WorkLog>(1, 500, {
-                    filter: `personal = "${selectedPersonalId}" && date >= "${getLocalDayStartUTC(startDate)}" && date <= "${getLocalDayEndUTC(endDate)}"`,
+                    filter: `personal = "${selectedPersonalId}" && date >= "${getLocalDayStartUTC(selectedDate)}" && date <= "${getLocalDayEndUTC(selectedDate)}"`,
                     sort: '-date',
                     expand: 'project'
                 });
@@ -101,9 +147,9 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
                     </div>
                     
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mes</label>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Día</label>
                         <input 
-                            type="month" 
+                            type="date" 
                             value={selectedDate} 
                             onChange={(e) => setSelectedDate(e.target.value)}
                             className="w-full rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
@@ -119,50 +165,81 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
                     </div>
                 )}
 
-                {/* Logs Table */}
-                <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-zinc-800">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-                        <thead className="bg-gray-50 dark:bg-zinc-800/50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proyecto</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horas</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-10 text-center">
-                                        <div className="flex justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>
-                                    </td>
-                                </tr>
-                            ) : logs.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
-                                        {selectedPersonalId ? 'No hay registros para este período' : 'Seleccione un usuario para ver sus registros'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                logs.map((log) => (
-                                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                            {formatLocalDate(log.date)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300 font-medium">
-                                            {log.expand?.project?.system_name || log.expand?.project?.code || 'Sin Proyecto'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                            {log.hours}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title={log.description}>
-                                            {log.description || '-'}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                {/* Logs Accordion */}
+                <div className="space-y-4">
+                    {loading ? (
+                        <div className="text-center py-10 text-gray-500">
+                            <div className="flex justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>
+                        </div>
+                    ) : groupedLogs.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg">
+                            {selectedPersonalId ? 'No hay registros para este período' : 'Seleccione un usuario para ver sus registros'}
+                        </div>
+                    ) : (
+                        groupedLogs.map((group) => {
+                            const isExpanded = expandedDates.has(group.dateKey);
+                            
+                            return (
+                                <div key={group.dateKey} className="border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                                    {/* Header Row */}
+                                    <div 
+                                        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors ${isExpanded ? 'bg-gray-50 dark:bg-zinc-800/30' : ''}`}
+                                        onClick={() => toggleDateExpand(group.dateKey)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-1 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                                                {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                    {group.displayDate}
+                                                </h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {group.logs.length} registro{group.logs.length !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                                                {group.totalHours}h
+                                            </span>
+                                            <span className="text-xs text-gray-500">Total</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Details */}
+                                    {isExpanded && (
+                                        <div className="border-t border-gray-100 dark:border-zinc-800">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 dark:bg-zinc-800/30">
+                                                    <tr>
+                                                        <th className="px-4 py-2 pl-12">Proyecto</th>
+                                                        <th className="px-4 py-2 text-center">Horas</th>
+                                                        <th className="px-4 py-2">Descripción</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/50">
+                                                    {group.logs.map((log) => (
+                                                        <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                            <td className="px-4 py-3 pl-12 text-gray-700 dark:text-gray-300">
+                                                                {log.expand?.project?.system_name || log.expand?.project?.code || 'Sin Proyecto'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center font-medium text-gray-900 dark:text-white">
+                                                                {log.hours}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate" title={log.description}>
+                                                                {log.description || '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             </div>
         </div>

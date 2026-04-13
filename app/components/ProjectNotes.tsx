@@ -21,16 +21,19 @@ interface Props {
 }
 
 export default function ProjectNotes({ projectId }: Props) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [notes, setNotes] = useState<ProjectNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [isAssigned, setIsAssigned] = useState(false);
+  const [checkingAssignment, setCheckingAssignment] = useState(true);
 
   useEffect(() => {
     if (!user) return; // Only subscribe if user is logged in
 
     fetchNotes();
+    checkAssignment();
 
     // Subscribe to realtime updates
     const onRecordChange = (e: any) => {
@@ -72,6 +75,50 @@ export default function ProjectNotes({ projectId }: Props) {
       // Don't show error toast on 404 (collection might not exist yet)
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAssignment = async () => {
+    if (isAdmin) {
+      setIsAssigned(true);
+      setCheckingAssignment(false);
+      return;
+    }
+
+    if (!user?.email) {
+      setIsAssigned(false);
+      setCheckingAssignment(false);
+      return;
+    }
+
+    try {
+      // Verificar si hay una asignación activa para este usuario en este proyecto
+      const assignments = await pb.collection('project_assignments').getFullList({
+        filter: `project = "${projectId}" && personal.email = "${user.email}" && active = true`,
+        $autoCancel: false,
+      });
+
+      if (assignments.length > 0) {
+        setIsAssigned(true);
+        return;
+      }
+
+      // También verificar si el usuario es el responsable principal del proyecto
+      const project = await pb.collection('projects').getOne(projectId, {
+        expand: 'personal',
+        $autoCancel: false,
+      });
+
+      if (project.expand?.personal?.email === user.email) {
+        setIsAssigned(true);
+      } else {
+        setIsAssigned(false);
+      }
+    } catch (error) {
+      console.error('Error verificando asignación:', error);
+      setIsAssigned(false);
+    } finally {
+      setCheckingAssignment(false);
     }
   };
 
@@ -182,26 +229,32 @@ export default function ProjectNotes({ projectId }: Props) {
         )}
       </div>
 
-      <div className="p-4 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 rounded-b-xl">
-        <div className="relative">
-          <RichTextEditor
-            value={newNote}
-            onChange={setNewNote}
-            placeholder="Escribe una nota..."
-            className="mb-2"
-          />
-          <div className="flex justify-end">
-            <button
-              onClick={handleSubmit}
-              disabled={!newNote.replace(/<[^>]*>/g, '').trim() || sending}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              <span>Enviar</span>
-            </button>
+      {(isAdmin || isAssigned) && !checkingAssignment ? (
+        <div className="p-4 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 rounded-b-xl">
+          <div className="relative">
+            <RichTextEditor
+              value={newNote}
+              onChange={setNewNote}
+              placeholder="Escribe una nota..."
+              className="mb-2"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handleSubmit}
+                disabled={!newNote.replace(/<[^>]*>/g, '').trim() || sending}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                <span>Enviar</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : checkingAssignment ? (
+        <div className="p-4 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 rounded-b-xl flex justify-center">
+          <Loader2 className="animate-spin text-indigo-600" size={20} />
+        </div>
+      ) : null}
     </div>
   );
 }

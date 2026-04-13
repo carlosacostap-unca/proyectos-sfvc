@@ -1,7 +1,20 @@
 export const toLocalDateString = (date: Date | string): string => {
   if (!date) return '';
-  const d = new Date(date);
+  
+  // If it's already a YYYY-MM-DD string, just return it
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+  }
+
+  let dateObj = date;
+  if (typeof date === 'string') {
+      // Replace space with T for better cross-browser compatibility with PocketBase dates
+      dateObj = date.replace(' ', 'T');
+  }
+
+  const d = new Date(dateObj);
   if (isNaN(d.getTime())) return '';
+  
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
@@ -10,7 +23,19 @@ export const toLocalDateString = (date: Date | string): string => {
 
 export const formatLocalDate = (dateString: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string => {
   if (!dateString) return '';
-  const d = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  
+  let d: Date;
+  if (typeof dateString === 'string') {
+      // If it's just YYYY-MM-DD, force local parsing by adding T00:00:00
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          d = new Date(`${dateString}T00:00:00`);
+      } else {
+          d = new Date(dateString.replace(' ', 'T'));
+      }
+  } else {
+      d = dateString;
+  }
+
   if (isNaN(d.getTime())) return '';
   
   if (options) {

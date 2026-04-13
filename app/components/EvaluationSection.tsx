@@ -121,19 +121,21 @@ export default function EvaluationSection({ projectId }: Props) {
         <div className="text-center py-12 bg-white dark:bg-zinc-800 rounded-xl border border-dashed dark:border-zinc-700">
           <ClipboardCheck className="mx-auto h-12 w-12 text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No hay evaluaciones registradas</p>
-          <p className="text-sm text-gray-400 mb-4">
-            {filterType === 'mine' ? 'No has realizado ninguna evaluación aún.' : 'Realiza la primera evaluación de dimensiones para este proyecto.'}
-          </p>
           {isAdmin && (
-            <button
-              onClick={() => {
-                setEvaluationToEdit(null);
-                setShowWizard(true);
-              }}
-              className="text-blue-600 hover:underline text-sm font-medium"
-            >
-              Comenzar Evaluación
-            </button>
+            <>
+              <p className="text-sm text-gray-400 mb-4">
+                {filterType === 'mine' ? 'No has realizado ninguna evaluación aún.' : 'Realiza la primera evaluación de dimensiones para este proyecto.'}
+              </p>
+              <button
+                onClick={() => {
+                  setEvaluationToEdit(null);
+                  setShowWizard(true);
+                }}
+                className="text-blue-600 hover:underline text-sm font-medium"
+              >
+                Comenzar Evaluación
+              </button>
+            </>
           )}
         </div>
       ) : (
