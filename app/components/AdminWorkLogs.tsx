@@ -146,7 +146,7 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
                     <select 
                         value={selectedPersonalId} 
                         onChange={(e) => setSelectedPersonalId(e.target.value)}
-                        className="flex-1 rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
+                        className="flex-1 rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border dark:[color-scheme:dark]"
                     >
                         <option value="">Seleccionar Usuario</option>
                         {personals.map(p => (
@@ -158,7 +158,7 @@ export default function AdminWorkLogs({ onBack }: AdminWorkLogsProps) {
                         type="month" 
                         value={selectedDate} 
                         onChange={(e) => setSelectedDate(e.target.value)}
-                        className="flex-1 rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border"
+                        className="flex-1 rounded-lg border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 p-2.5 border dark:[color-scheme:dark]"
                     />
                 </div>
 

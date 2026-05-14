@@ -2,19 +2,43 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies with pnpm:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+```
+
+Then run the development server:
+
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## OpenSpec
+
+This project is initialized with OpenSpec for spec-driven changes.
+
+```bash
+pnpm spec:list
+pnpm spec:validate
+pnpm spec:view
+```
+
+Start a proposed change with the Codex slash command `/opsx:propose "describe the change"` or run the local CLI with `pnpm openspec -- <command>`.
+
+## End-to-End Tests
+
+This project uses Playwright for browser-based end-to-end tests.
+
+```bash
+pnpm test:e2e
+pnpm test:e2e:ui
+pnpm test:e2e:headed
+```
+
+The Playwright config starts the Next.js dev server automatically and runs tests from `tests/e2e`.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

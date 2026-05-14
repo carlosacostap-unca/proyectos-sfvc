@@ -2,15 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { X, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Save, AlertCircle, ArrowLeft } from 'lucide-react';
 import { toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, Personal, ProjectStatus, TechItem, ProjectTypeItem, ProjectStatusItem, ShiftItem, Program } from '@/app/types';
+import { Project, RequestingArea, TechItem, ProjectTypeItem, ProjectStatusItem, ShiftItem, Program } from '@/app/types';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
 import Link from 'next/link';
 
-// Constants
-const DEFAULT_SHIFTS = ['Mañana', 'Tarde'];
+type ProjectFieldValue = Project[keyof Project] | null;
+
+type PocketBaseValidationDetail = {
+  message?: string;
+};
+
+type PocketBaseError = {
+  message?: string;
+  data?: {
+    data?: Record<string, PocketBaseValidationDetail>;
+  };
+};
 
 export default function EditProjectPage() {
   const params = useParams();
@@ -112,9 +122,9 @@ export default function EditProjectPage() {
         }
       }
     }
-  }, [formData.start_date, formData.estimated_duration]);
+  }, [formData.start_date, formData.estimated_duration, formData.estimated_end_date]);
 
-  const handleChange = (field: keyof Project, value: any) => {
+  const handleChange = (field: keyof Project, value: ProjectFieldValue) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -165,14 +175,15 @@ export default function EditProjectPage() {
       await pb.collection('projects').update(project.id, dataToSend);
       router.push(`/projects/${project.id}`);
       router.refresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as PocketBaseError;
       console.error('Error updating project:', err);
       
-      let errorMessage = err.message || 'Error al actualizar el proyecto.';
+      let errorMessage = error.message || 'Error al actualizar el proyecto.';
       
-      if (err.data?.data) {
-        const fieldErrors = Object.entries(err.data.data)
-          .map(([key, value]: [string, any]) => `${key}: ${value.message}`)
+      if (error.data?.data) {
+        const fieldErrors = Object.entries(error.data.data)
+          .map(([key, value]) => `${key}: ${value.message}`)
           .join(', ');
         errorMessage = `Error de validación: ${fieldErrors}`;
       }

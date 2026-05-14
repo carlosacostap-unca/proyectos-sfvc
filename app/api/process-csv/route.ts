@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+type ImportedProject = {
+  code: string | null;
+  system_name: string | null;
+  year: number | null;
+  requesting_area: string | null;
+  status: string | null;
+  personal: string | null;
+  start_date: string | null;
+  estimated_end_date: string | null;
+  description: string | null;
+  observations: string | null;
+  expected_benefit: string | null;
+  project_type: string[];
+  frontend_tech: string[];
+  backend_tech: string[];
+  database: string[];
+  shift: string[];
+  estimated_duration: number | null;
+  security_level: 'low' | 'medium' | 'high' | null;
+};
+
+type ParsedProjectsResponse = {
+  projects?: ImportedProject[];
+};
+
+type RequestError = {
+  message?: string;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const openai = new OpenAI({
@@ -40,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`Processing ${dataRows.length} rows in ${batches.length} batches...`);
 
-    const allProjects: any[] = [];
+    const allProjects: ImportedProject[] = [];
 
     // Process batches sequentially (or with limited concurrency) to avoid rate limits
     // We'll use a simple sequential loop for reliability
@@ -103,7 +132,7 @@ export async function POST(req: NextRequest) {
                 continue;
             }
             
-            const parsed = JSON.parse(content);
+            const parsed = JSON.parse(content) as ParsedProjectsResponse;
             if (parsed.projects && Array.isArray(parsed.projects)) {
                 allProjects.push(...parsed.projects);
             }
@@ -117,9 +146,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ projects: allProjects });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const requestError = error as RequestError;
     console.error('Error processing CSV:', error);
     // If the model name was the issue, we might see it here.
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: requestError.message || 'Internal Server Error' }, { status: 500 });
   }
 }

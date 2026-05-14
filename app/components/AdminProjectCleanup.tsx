@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { Project } from '@/app/types';
 import { Trash2, ArrowLeft, Loader2, AlertTriangle, Search } from 'lucide-react';
-import { toLocalDateString, formatLocalDate } from '@/app/utils/date';
+import { formatLocalDate } from '@/app/utils/date';
 
 interface AdminProjectCleanupProps {
     onBack: () => void;

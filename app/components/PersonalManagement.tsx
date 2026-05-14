@@ -2,21 +2,45 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Plus, Trash2, Edit2, Save, X, Search, 
-  User, FileText, Phone, Mail, Calendar, 
-  Briefcase, Check, AlertCircle, Upload, Clock
+  Plus, Save, X, Search,
+  FileText, Phone, Mail,
+  Check, Upload, Clock, DollarSign
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { Personal, RoleItem, ShiftItem, StaffStatusItem } from '@/app/types';
 import { toast } from 'sonner';
 import { toLocalDateString, fromLocalDateString } from '@/app/utils/date';
 
+type RequestError = {
+  message?: string;
+};
+
+type PersonalWithFlexibleShift = Omit<Personal, 'expand'> & {
+  expand?: Omit<NonNullable<Personal['expand']>, 'shift'> & {
+    shift?: ShiftItem[] | ShiftItem;
+  };
+};
+
+const formatCurrency = (value?: number) => {
+  if (!value) return '-';
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+const formatShiftNames = (item: Personal) => {
+  const shift = (item as PersonalWithFlexibleShift).expand?.shift;
+  if (!shift) return '-';
+  return Array.isArray(shift) ? shift.map(s => s.name).join(', ') : shift.name;
+};
+
 export default function PersonalManagement() {
   const [personal, setPersonal] = useState<Personal[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [statuses, setStatuses] = useState<StaffStatusItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,6 +54,8 @@ export default function PersonalManagement() {
     file_number: '',
     email: '',
     phone: '',
+    working_hours: 0,
+    monthly_salary: 0,
     shift: [], // Array for multiple selection
     main_role: '',
     secondary_role: '',
@@ -38,13 +64,6 @@ export default function PersonalManagement() {
   });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetchPersonal();
-    fetchRoles();
-    fetchShifts();
-    fetchStatuses();
-  }, []);
 
   const fetchRoles = async () => {
     try {
@@ -83,7 +102,6 @@ export default function PersonalManagement() {
   };
 
   const fetchPersonal = async () => {
-    setLoading(true);
     try {
       const records = await pb.collection('personal').getFullList<Personal>({
         sort: 'surname,name',
@@ -93,10 +111,21 @@ export default function PersonalManagement() {
     } catch (error) {
       console.error('Error fetching personal:', error);
       toast.error('Error al cargar el personal');
-    } finally {
-      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await Promise.all([
+        fetchPersonal(),
+        fetchRoles(),
+        fetchShifts(),
+        fetchStatuses(),
+      ]);
+    };
+
+    void loadInitialData();
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -107,6 +136,8 @@ export default function PersonalManagement() {
       file_number: '',
       email: '',
       phone: '',
+      working_hours: 0,
+      monthly_salary: 0,
       shift: [],
       main_role: '',
       secondary_role: '',
@@ -128,6 +159,8 @@ export default function PersonalManagement() {
       file_number: item.file_number || '',
       email: item.email || '',
       phone: item.phone || '',
+      working_hours: item.working_hours || 0,
+      monthly_salary: item.monthly_salary || 0,
       // Ensure shift is always an array, even if it comes as a single string ID
       shift: Array.isArray(item.shift) ? item.shift : (item.shift ? [item.shift] : []),
       main_role: item.main_role || '',
@@ -191,9 +224,10 @@ export default function PersonalManagement() {
       
       resetForm();
       fetchPersonal();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const requestError = error as RequestError;
       console.error('Error saving personal:', error);
-      toast.error(`Error al guardar: ${error.message}`);
+      toast.error(`Error al guardar: ${requestError.message || 'Error desconocido'}`);
     }
   };
 
@@ -273,11 +307,15 @@ export default function PersonalManagement() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock size={12} />
-                    {item.expand?.shift ? (
-                      Array.isArray(item.expand.shift) 
-                        ? item.expand.shift.map(s => s.name).join(', ') 
-                        : (item.expand.shift as any).name
-                    ) : '-'}
+                    {formatShiftNames(item)}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} />
+                    {item.working_hours ? `${item.working_hours} h` : '-'}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <DollarSign size={12} />
+                    {formatCurrency(item.monthly_salary)}
                   </div>
                 </div>
               </div>
@@ -369,6 +407,31 @@ export default function PersonalManagement() {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Horas de trabajo</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.working_hours || ''}
+                    onChange={(e) => setFormData({...formData, working_hours: e.target.value === '' ? 0 : Number(e.target.value)})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sueldo mensual</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.monthly_salary || ''}
+                    onChange={(e) => setFormData({...formData, monthly_salary: e.target.value === '' ? 0 : Number(e.target.value)})}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                   />
                 </div>
@@ -479,7 +542,7 @@ export default function PersonalManagement() {
                   </button>
                   {formData.cv && !cvFile && (
                     <a 
-                      href={pb.files.getUrl({ collectionId: 'personal', id: editingId || '' } as any, formData.cv)}
+                      href={pb.files.getUrl({ collectionId: 'personal', id: editingId || '' }, formData.cv)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-indigo-600 text-sm hover:underline flex items-center gap-1"

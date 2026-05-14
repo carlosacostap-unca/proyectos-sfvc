@@ -76,9 +76,10 @@ export default function ProgramList({ onBack }: ProgramListProps) {
                 active: true
             });
             fetchPrograms();
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const error = e as { message?: string };
             console.error(e);
-            toast.error('Error al guardar: ' + e.message);
+            toast.error('Error al guardar: ' + (error.message || 'Error desconocido'));
         }
     };
 
@@ -100,9 +101,10 @@ export default function ProgramList({ onBack }: ProgramListProps) {
             await pb.collection('programs').delete(id);
             toast.success('Programa eliminado');
             fetchPrograms();
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const error = e as { message?: string };
             console.error(e);
-            toast.error('Error al eliminar: ' + e.message);
+            toast.error('Error al eliminar: ' + (error.message || 'Error desconocido'));
         }
     };
 

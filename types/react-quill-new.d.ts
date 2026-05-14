@@ -15,12 +15,19 @@ declare module 'react-quill-new' {
         length: number;
     }
 
+    export interface DeltaOperation {
+        retain?: number;
+        delete?: number;
+        insert?: string | Record<string, unknown>;
+        attributes?: Record<string, unknown>;
+    }
+
     export interface DeltaStatic {
-        ops?: any[];
-        retain?: any;
-        delete?: any;
-        insert?: any;
-        attributes?: any;
+        ops?: DeltaOperation[];
+        retain?: number;
+        delete?: number;
+        insert?: string | Record<string, unknown>;
+        attributes?: Record<string, unknown>;
     }
 
     export interface Sources {
@@ -36,14 +43,14 @@ declare module 'react-quill-new' {
         defaultValue?: string | DeltaStatic;
         formats?: string[];
         id?: string;
-        modules?: any;
+        modules?: Record<string, unknown>;
         onChange?: (content: string, delta: DeltaStatic, source: Sources, editor: UnprivilegedEditor) => void;
         onChangeSelection?: (range: RangeStatic, source: Sources, editor: UnprivilegedEditor) => void;
         onFocus?: (range: RangeStatic, source: Sources, editor: UnprivilegedEditor) => void;
         onBlur?: (previousRange: RangeStatic, source: Sources, editor: UnprivilegedEditor) => void;
-        onKeyDown?: React.EventHandler<any>;
-        onKeyPress?: React.EventHandler<any>;
-        onKeyUp?: React.EventHandler<any>;
+        onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
+        onKeyPress?: React.KeyboardEventHandler<HTMLElement>;
+        onKeyUp?: React.KeyboardEventHandler<HTMLElement>;
         placeholder?: string;
         preserveWhitespace?: boolean;
         readOnly?: boolean;
@@ -57,6 +64,6 @@ declare module 'react-quill-new' {
     export default class ReactQuill extends React.Component<ReactQuillProps> {
         focus(): void;
         blur(): void;
-        getEditor(): any;
+        getEditor(): unknown;
     }
 }

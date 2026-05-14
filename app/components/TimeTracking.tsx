@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
-import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, History, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { formatLocalDate, toLocalDateString, fromLocalDateString, getLocalDayStartUTC, getLocalDayEndUTC } from '@/app/utils/date';
 import { useRouter } from 'next/navigation';
 
@@ -27,8 +27,23 @@ interface GroupedLog {
   logs: WorkLog[];
 }
 
+type RequestError = {
+  status?: number;
+  message?: string;
+};
+
+type WorkLogPayload = {
+  personal: string;
+  date: string;
+  hours: number;
+  description?: string;
+  project?: string | null;
+  assignment?: string;
+};
+
 export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackingProps) {
   const [date, setDate] = useState(toLocalDateString(new Date()));
+  const dateRef = useRef(date);
   const [personalId, setPersonalId] = useState<string | null>(null);
   const [entries, setEntries] = useState<ProjectTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +77,10 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>(userEmail);
   const [userList, setUserList] = useState<Array<{email: string, name: string}>>([]);
 
+  useEffect(() => {
+    dateRef.current = date;
+  }, [date]);
+
   // Load user list for admins
   useEffect(() => {
     const loadUsers = async () => {
@@ -83,8 +102,8 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     loadUsers();
   }, [isAdmin, userEmail]);
 
-  // Helper to get working days allowed for editing
-  const getAllowedWorkingDays = () => {
+  // Helper to get working days shown in the recent-history view.
+  const getAllowedWorkingDays = useCallback(() => {
     const days = [];
     const current = new Date();
     
@@ -99,7 +118,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     const iterDate = new Date(current);
     let count = 0;
 
-    // We only allow 2 calendar days (today and yesterday) for everyone.
+    // We show the latest 2 working days in history. Admins can still open any date from edit mode.
     while (count < 2) {
       const day = iterDate.getDay();
       
@@ -122,11 +141,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       iterDate.setDate(iterDate.getDate() - 1);
     }
     return days;
-  };
+  }, [isAdmin]);
 
   useEffect(() => {
     setWorkingDays(getAllowedWorkingDays());
-  }, [isAdmin]);
+  }, [getAllowedWorkingDays]);
 
   // Initialize: Find personal record and assignments
   useEffect(() => {
@@ -155,10 +174,10 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         let foundPersonalId: string | null = null;
 
         if (assignmentRecords.length > 0) {
-            // @ts-ignore
+            // @ts-expect-error PocketBase expand fields are not represented in the generated collection type.
             foundPersonalId = assignmentRecords[0].expand?.personal?.id;
         } else if (ownedProjects.length > 0) {
-            // @ts-ignore
+            // @ts-expect-error PocketBase expand fields are not represented in the generated collection type.
             foundPersonalId = ownedProjects[0].expand?.personal?.id;
         }
 
@@ -175,7 +194,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                      setLoading(false);
                      return;
                  }
-             } catch (e) {
+             } catch {
                  setError(`No se encontró un perfil de personal asociado a la cuenta (${selectedUserEmail}). Contacta al administrador.`);
                  setLoading(false);
                  return;
@@ -189,7 +208,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
 
         // Add from assignments
         assignmentRecords.forEach(assignment => {
-           // @ts-ignore
+           // @ts-expect-error PocketBase expand fields are not represented in the generated collection type.
            const project = assignment.expand?.project;
            if (project) {
              mergedProjects.set(project.id, {
@@ -235,9 +254,9 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         );
 
         // Load logs for today (initial load)
-        await loadLogsForDate(foundPersonalId, date, finalProjects);
+        await loadLogsForDate(foundPersonalId, dateRef.current, finalProjects);
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error initializing time tracking:', err);
         setError('Error al cargar la información. Intenta nuevamente.');
       } finally {
@@ -248,17 +267,17 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     if (selectedUserEmail) {
       init();
     }
-  }, [selectedUserEmail]); // Removed date, as date change is handled by the other useEffect
+  }, [selectedUserEmail]); // Date changes are handled by the other useEffect.
 
   // When date changes, reload logs
   useEffect(() => {
     if (personalId && projectList.length > 0 && isEditing) {
       loadLogsForDate(personalId, date, projectList);
     }
-  }, [date, personalId, isEditing]); // specific dependency on date
+  }, [date, personalId, isEditing, projectList]); // specific dependency on date
 
   // Fetch history logs for last 10 working days
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!personalId || workingDays.length === 0) return;
     
     try {
@@ -309,7 +328,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [personalId, workingDays]);
 
   const toggleDateExpand = (dateKey: string) => {
     const newExpanded = new Set(expandedDates);
@@ -321,7 +340,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     setExpandedDates(newExpanded);
   };
 
-  const fetchProjectSummary = async () => {
+  const fetchProjectSummary = useCallback(async () => {
     if (!personalId) return;
     try {
       const logs = await pb.collection('work_logs').getFullList<WorkLog>({
@@ -355,19 +374,19 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
     } catch (err) {
       console.error('Error fetching project summary:', err);
     }
-  };
+  }, [personalId, projectList, summaryEndDate, summaryStartDate]);
 
   useEffect(() => {
     if (!isEditing && personalId && workingDays.length > 0) {
         fetchHistory();
     }
-  }, [isEditing, personalId, workingDays]);
+  }, [fetchHistory, isEditing, personalId, workingDays]);
 
   useEffect(() => {
     if (!isEditing && personalId) {
         fetchProjectSummary();
     }
-  }, [isEditing, personalId, summaryStartDate, summaryEndDate, projectList]);
+  }, [fetchProjectSummary, isEditing, personalId]);
 
   const loadLogsForDate = async (pId: string, selectedDate: string, currentProjects: Array<{id: string, name: string, assignmentId: string}>) => {
     try {
@@ -416,8 +435,9 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         });
 
         setEntries(newEntries);
-      } catch (err: any) {
-        if (err.status === 404) {
+      } catch (err: unknown) {
+        const error = err as RequestError;
+        if (error.status === 404) {
              console.warn('Work logs collection might be missing or empty query', err);
              // Initialize empty entries
              const newEntries: ProjectTimeEntry[] = currentProjects.map(proj => {
@@ -479,6 +499,19 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
   const handleSave = async () => {
     if (!personalId) return;
 
+    if (!isAdmin && !workingDays.includes(date)) {
+      setFormError('Solo puedes registrar horas de hoy o del dia habil anterior.');
+      return;
+    }
+
+    const entriesWithoutDescription = entries.filter(
+      entry => (Number(entry.hours) || 0) > 0 && !entry.description?.trim()
+    );
+    if (entriesWithoutDescription.length > 0) {
+      setFormError('La descripcion es obligatoria para cada registro con horas cargadas.');
+      return;
+    }
+
     const totalHours = entries.reduce((acc, entry) => acc + (Number(entry.hours) || 0), 0);
     if (totalHours > 8) {
       setFormError('No puedes registrar más de 8 horas en un solo día.');
@@ -498,11 +531,11 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             return; // Nothing to save
         }
 
-        const data: any = {
+        const data: WorkLogPayload = {
             personal: personalId,
             date: fromLocalDateString(date), // Convert local date to UTC ISO string
             hours: entry.hours,
-            description: entry.description
+            description: entry.description?.trim()
         };
 
         // Handle project field
@@ -533,7 +566,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
         return entry;
       });
 
-      const results = await Promise.all(promises);
+      await Promise.all(promises);
       
       // Update local state with new logIds
       // We need to reload or update state carefully.
@@ -543,7 +576,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       setSuccessMessage('Horas guardadas correctamente');
       setTimeout(() => setSuccessMessage(null), 3000);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving logs:', err);
       // Removed toast.error, could show inline error state
     } finally {
@@ -621,6 +654,16 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                       Volver
                   </button>
               )}
+
+              {isAdmin && !isEditing && (
+                  <button
+                      onClick={() => switchToDaily(date)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                  >
+                      <Calendar size={16} />
+                      Cargar fecha
+                  </button>
+              )}
             </div>
           </div>
         </div>
@@ -659,9 +702,18 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                     <span className="text-sm text-gray-500">Fecha:</span>
                     <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
                           <Calendar size={18} className="text-gray-500 ml-2" />
-                          <span className="text-gray-700 dark:text-gray-200 text-sm font-medium px-2">
-                              {formatLocalDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                          </span>
+                          {isAdmin ? (
+                              <input
+                                  type="date"
+                                  value={date}
+                                  onChange={(e) => setDate(e.target.value)}
+                                  className="bg-transparent border-none text-gray-700 dark:text-gray-200 text-sm font-medium px-2 py-1 focus:ring-0"
+                              />
+                          ) : (
+                              <span className="text-gray-700 dark:text-gray-200 text-sm font-medium px-2">
+                                  {formatLocalDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                              </span>
+                          )}
                       </div>
                  </div>
             </div>
@@ -684,7 +736,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                         <div className="hidden md:grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
                             <div className="col-span-4">Proyecto</div>
                             <div className="col-span-2 text-center">Horas</div>
-                            <div className="col-span-6">Descripción (Opcional)</div>
+                            <div className="col-span-6">Descripción</div>
                         </div>
                         
                         {entries.map((entry, index) => (
@@ -714,6 +766,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                                             type="text" 
                                             value={entry.description || ''}
                                             placeholder="Detalle de tareas..."
+                                            required={(Number(entry.hours) || 0) > 0}
                                             onChange={(e) => handleDescriptionChange(index, e.target.value)}
                                             className="w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg py-2 md:py-1.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                         />

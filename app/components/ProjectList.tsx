@@ -3,10 +3,19 @@
 import { useEffect, useState, useRef } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { Project, ProjectStatus, ProjectTypeItem, ProjectStatusItem, Program } from '@/app/types';
-import { Plus, Search, Filter, X, RefreshCw, Shield, Folder } from 'lucide-react';
+import { Project, ProjectTypeItem, ProjectStatusItem, Program } from '@/app/types';
+import { Plus, Search, X, RefreshCw, Shield, Folder } from 'lucide-react';
 import Link from 'next/link';
 import CreateProjectWizard from './CreateProjectWizard';
+
+type RequestError = {
+  status?: number;
+  message?: string;
+};
+
+type RealtimeEvent = {
+  action: 'create' | 'update' | 'delete' | string;
+};
 
 export default function ProjectList() {
   const { isAdmin } = useAuth();
@@ -38,21 +47,22 @@ export default function ProjectList() {
       });
       setProjects(records);
       setError('');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as RequestError;
       console.error('Error fetching projects:', err);
-      if (err.status === 404) {
+      if (error.status === 404) {
            setError('Projects collection not found. Please create a "projects" collection in PocketBase.');
-      } else if (err.status === 0) { // Auto-cancellation or network error
+      } else if (error.status === 0) { // Auto-cancellation or network error
            // Don't show error for cancellations, but show for network failure
-           if (err.message !== 'The request was autocancelled') {
+           if (error.message !== 'The request was autocancelled') {
                setError('Connection failed. Please check if PocketBase is running.');
            }
-      } else if (err.status === 401 || err.status === 403) {
+      } else if (error.status === 401 || error.status === 403) {
            // Token expired or invalid
            setError('Tu sesión ha expirado. Por favor, recarga la página o inicia sesión nuevamente.');
            // Optionally redirect to login, but showing a message is safer for now
       } else {
-           setError(err.message || 'Failed to fetch projects');
+           setError(error.message || 'Failed to fetch projects');
       }
     } finally {
       setLoading(false);
@@ -76,7 +86,7 @@ export default function ProjectList() {
       .catch(console.error);
     
     // Subscribe to realtime updates
-    const onRecordChange = (e: any) => {
+    const onRecordChange = (e: RealtimeEvent) => {
         if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
             // Debounce fetch to prevent excessive API calls during bulk operations
             if (fetchTimeoutRef.current) {

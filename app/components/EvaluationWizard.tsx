@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
-import { EVALUATION_DIMENSIONS, EvaluationQuestion } from '@/app/data/evaluationCriteria';
+import { EVALUATION_DIMENSIONS } from '@/app/data/evaluationCriteria';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Evaluation } from '@/app/types';
@@ -80,9 +80,10 @@ export default function EvaluationWizard({ projectId, evaluationToEdit, onClose,
       }
       
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { message?: string };
       console.error('Error submitting evaluation:', err);
-      setError(err.message || 'Error al guardar la evaluación. Intenta nuevamente.');
+      setError(error.message || 'Error al guardar la evaluación. Intenta nuevamente.');
     } finally {
       setIsSubmitting(false);
     }

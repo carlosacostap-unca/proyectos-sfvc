@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { X, Plus, Trash2, Edit, Save, Shield, User as UserIcon, Ban, CheckCircle, Users } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { User } from '@/app/types';
@@ -9,6 +10,17 @@ import { useAuth } from '@/app/contexts/AuthContext';
 interface Props {
   onClose: () => void;
 }
+
+type PocketBaseValidationDetail = {
+  message?: string;
+};
+
+type PocketBaseUserError = {
+  message?: string;
+  response?: {
+    data?: Record<string, PocketBaseValidationDetail>;
+  };
+};
 
 export default function UserManagementModal({ onClose }: Props) {
   const { user: currentUser } = useAuth();
@@ -107,14 +119,15 @@ export default function UserManagementModal({ onClose }: Props) {
       
       await fetchUsers();
       resetForm();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as PocketBaseUserError;
       console.error('Error saving user:', err);
-      let errorMsg = err.message || 'Error al guardar el usuario';
+      let errorMsg = error.message || 'Error al guardar el usuario';
       
       // Parse detailed PocketBase validation errors if available
-      if (err.response?.data) {
-        const details = Object.entries(err.response.data)
-          .map(([field, d]: [string, any]) => {
+      if (error.response?.data) {
+        const details = Object.entries(error.response.data)
+          .map(([field, d]) => {
             const fieldName = field === 'oldPassword' ? 'Contraseña antigua' : 
                               field === 'email' ? 'Email' : field;
             return `${fieldName}: ${d.message}`;
@@ -209,7 +222,7 @@ export default function UserManagementModal({ onClose }: Props) {
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden ${u.avatar ? '' : (u.isAdmin ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-gray-400')}`}>
                             {u.avatar ? (
-                              <img src={pb.files.getUrl(u, u.avatar)} alt={u.name || u.email} className="w-full h-full object-cover" />
+                              <Image src={pb.files.getUrl(u, u.avatar)} alt={u.name || u.email} width={40} height={40} unoptimized className="w-full h-full object-cover" />
                             ) : (
                               u.isAdmin ? <Shield size={18} /> : <UserIcon size={18} />
                             )}

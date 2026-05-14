@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Evaluation } from '@/app/types';
 import { EVALUATION_DIMENSIONS } from '@/app/data/evaluationCriteria';
-import { Plus, ClipboardCheck, ChevronDown, ChevronUp, History, HelpCircle, Filter, Edit } from 'lucide-react';
+import { Plus, ClipboardCheck, ChevronDown, ChevronUp, History, Filter, Edit } from 'lucide-react';
 import EvaluationWizard from './EvaluationWizard';
 import EvaluationRadarChart from './EvaluationRadarChart';
 import { formatLocalDate } from '@/app/utils/date';
@@ -25,7 +25,7 @@ export default function EvaluationSection({ projectId }: Props) {
   const [filterType, setFilterType] = useState<'all' | 'mine'>('all');
   const [evaluationToEdit, setEvaluationToEdit] = useState<Evaluation | null>(null);
 
-  const fetchEvaluations = async () => {
+  const fetchEvaluations = useCallback(async () => {
     try {
       setLoading(true);
       const records = await pb.collection('evaluations').getList<Evaluation>(1, 50, {
@@ -36,8 +36,8 @@ export default function EvaluationSection({ projectId }: Props) {
       setEvaluations(records.items);
       
       // Expand the latest one by default if exists
-      if (records.items.length > 0 && !expandedId) {
-        setExpandedId(records.items[0].id);
+      if (records.items.length > 0) {
+        setExpandedId(current => current ?? records.items[0].id);
       }
     } catch (err) {
       console.error('Error fetching evaluations:', err);
@@ -45,11 +45,11 @@ export default function EvaluationSection({ projectId }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     fetchEvaluations();
-  }, [projectId]);
+  }, [fetchEvaluations]);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);

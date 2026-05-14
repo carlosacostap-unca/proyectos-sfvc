@@ -153,6 +153,15 @@ General
 
 const pb = new PocketBase('https://pocketbase-proyectos-sfvc.acostaparra.com/');
 
+type AreaRecord = {
+  name: string;
+};
+
+type RequestError = {
+  status?: number;
+  message?: string;
+};
+
 // Helper to normalize strings to Title Case for better display and comparison
 function toTitleCase(str: string) {
   return str.replace(
@@ -211,12 +220,13 @@ async function main() {
   console.log(`Found ${areasToImport.length} unique areas to process.`);
 
   // 2. Fetch existing areas to avoid duplicates in DB
-  let existingAreas: any[] = [];
+  let existingAreas: AreaRecord[] = [];
   try {
     existingAreas = await pb.collection('requesting_areas').getFullList();
     console.log(`Fetched ${existingAreas.length} existing areas from DB.`);
-  } catch (e: any) {
-    if (e.status === 404) {
+  } catch (e: unknown) {
+    const error = e as RequestError;
+    if (error.status === 404) {
         console.log('Collection requesting_areas not found. It will be created implicitly if auto-create is on, or script will fail.');
     } else {
         console.error('Error fetching existing areas:', e);
@@ -244,8 +254,9 @@ async function main() {
             name: areaName
         });
         addedCount++;
-    } catch (err: any) {
-        console.error(`Failed to create "${areaName}":`, err.message);
+    } catch (err: unknown) {
+        const error = err as RequestError;
+        console.error(`Failed to create "${areaName}":`, error.message);
     }
   }
 

@@ -3,19 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { pb } from '@/lib/pocketbase';
-import { toLocalDateString, formatLocalDate } from '@/app/utils/date';
+import { formatLocalDate } from '@/app/utils/date';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { Project } from '@/app/types';
+import { Project, ProjectTypeItem, ShiftItem, TechItem } from '@/app/types';
 import { 
   ArrowLeft, 
   Calendar, 
-  Clock, 
   Database, 
   Globe, 
   HardDrive, 
   Layout, 
   Server, 
-  User, 
   Users,
   Code,
   Briefcase,
@@ -32,18 +30,20 @@ import ProjectNotes from '@/app/components/ProjectNotes';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
 import ProjectPhases from '@/app/components/ProjectPhases';
 
-// Helper to ensure we handle both arrays and single strings safely
-const ensureArray = (data: any): string[] => {
-  if (Array.isArray(data)) return data;
-  if (typeof data === 'string' && data.trim() !== '') return [data];
-  return [];
-};
-
 // Helper to ensure expand fields are always arrays
-const ensureExpandList = (data: any): any[] => {
+const ensureExpandList = <T,>(data: T | T[] | null | undefined): T[] => {
   if (Array.isArray(data)) return data;
   if (data) return [data];
   return [];
+};
+
+type RealtimeEvent = {
+  action: 'update' | 'delete' | string;
+};
+
+type RequestError = {
+  status?: number;
+  message?: string;
 };
 
 export default function ProjectDetail() {
@@ -72,7 +72,7 @@ export default function ProjectDetail() {
           expand: 'requesting_area,program,personal,frontend_tech,backend_tech,database,status,project_type,shift',
         });
         setProject(record);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching project:', err);
         setError('No se pudo cargar el proyecto. Puede que no exista o haya sido eliminado.');
       } finally {
@@ -83,7 +83,7 @@ export default function ProjectDetail() {
     fetchProject();
 
     // Subscribe to realtime updates for this specific project
-    const onRecordChange = (e: any) => {
+    const onRecordChange = (e: RealtimeEvent) => {
         if (e.action === 'update') {
             // We can optimistically update the state or re-fetch
             // Re-fetching ensures we get all expanded relations correctly
@@ -122,9 +122,10 @@ export default function ProjectDetail() {
     try {
       await pb.collection('projects').delete(project.id);
       router.push('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as RequestError;
       console.error('Error deleting project:', err);
-      alert('Error al eliminar el proyecto: ' + err.message);
+      alert('Error al eliminar el proyecto: ' + (error.message || 'Error desconocido'));
     }
   };
 
@@ -188,7 +189,7 @@ export default function ProjectDetail() {
             <div>
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{project.system_name}</h1>
-                {ensureExpandList(project.expand?.project_type).map((type: any) => (
+                {ensureExpandList<ProjectTypeItem>(project.expand?.project_type).map((type) => (
                   <span key={type.id} className="px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                     {type.name}
                   </span>
@@ -254,7 +255,7 @@ export default function ProjectDetail() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Turno:</span>
                   <span className="font-medium">
-                    {ensureExpandList(project.expand?.shift).map((s: any) => s.name).join(', ') || '-'}
+                    {ensureExpandList<ShiftItem>(project.expand?.shift).map((s) => s.name).join(', ') || '-'}
                   </span>
                 </div>
               </div>
@@ -369,7 +370,7 @@ export default function ProjectDetail() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {ensureExpandList(project.expand?.frontend_tech).length > 0 ? (
-                      ensureExpandList(project.expand?.frontend_tech).map((t: any) => (
+                      ensureExpandList<TechItem>(project.expand?.frontend_tech).map((t) => (
                         <span key={t.id} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs rounded border border-indigo-100 dark:border-indigo-800">
                           {t.name}
                         </span>
@@ -384,7 +385,7 @@ export default function ProjectDetail() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {ensureExpandList(project.expand?.backend_tech).length > 0 ? (
-                      ensureExpandList(project.expand?.backend_tech).map((t: any) => (
+                      ensureExpandList<TechItem>(project.expand?.backend_tech).map((t) => (
                         <span key={t.id} className="px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs rounded border border-emerald-100 dark:border-emerald-800">
                           {t.name}
                         </span>
@@ -399,7 +400,7 @@ export default function ProjectDetail() {
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {ensureExpandList(project.expand?.database).length > 0 ? (
-                      ensureExpandList(project.expand?.database).map((t: any) => (
+                      ensureExpandList<TechItem>(project.expand?.database).map((t) => (
                         <span key={t.id} className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs rounded border border-amber-100 dark:border-amber-800">
                           {t.name}
                         </span>

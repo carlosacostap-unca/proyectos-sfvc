@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { AuthModel } from 'pocketbase';
 import { useRouter } from 'next/navigation';
@@ -13,6 +13,17 @@ interface AuthContextType {
   logout: () => void;
 }
 
+type AppAuthModel = AuthModel & {
+  active?: boolean;
+  emailVisibility?: boolean;
+  isAdmin?: boolean;
+};
+
+type RequestError = {
+  status?: number;
+  message?: string;
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -22,14 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const lastRevalidationRef = useRef<number>(0);
 
-  const checkUserRole = async (model: AuthModel) => {
+  const checkUserRole = useCallback(async (model: AuthModel) => {
     if (!model) return false;
+    const appModel = model as AppAuthModel;
     
     // Check if user is active
     // We access the properties directly from the model record
     // Only for 'users' collection (skip for superusers/admins)
-    if (model.collectionName === 'users') {
-        if (model.active === false) { // Explicit check for false
+    if (appModel.collectionName === 'users') {
+        if (appModel.active === false) { // Explicit check for false
           console.warn('User is inactive, redirecting to login...');
           pb.authStore.clear();
           setUser(null);
@@ -39,24 +51,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Ensure emailVisibility is true for the user
-        if (!model.emailVisibility) {
+        if (!appModel.emailVisibility) {
           try {
-            await pb.collection('users').update(model.id, { emailVisibility: true });
+            await pb.collection('users').update(appModel.id, { emailVisibility: true });
           } catch (err) {
             console.warn('Could not update emailVisibility.', err);
           }
         }
         
-        setIsAdmin(!!model.isAdmin);
-    } else if (model.collectionName === '_superusers') {
+        setIsAdmin(!!appModel.isAdmin);
+    } else if (appModel.collectionName === '_superusers') {
         // Superusers are always admins and don't have 'active'/'emailVisibility' fields in 'users' collection
         setIsAdmin(true);
     }
     
     return true;
-  };
+  }, [router]);
 
-  const revalidateSession = async () => {
+  const revalidateSession = useCallback(async () => {
     // Prevent excessive revalidation (throttle to once every 5 seconds)
     const now = Date.now();
     if (now - lastRevalidationRef.current < 5000) {
@@ -79,17 +91,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          await pb.collection('_superusers').authRefresh();
       }
       // Note: authRefresh updates the store, which triggers the onChange listener below
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as RequestError;
       // Only clear auth if it's explicitly an auth error (401/403)
-      if (err.status === 401 || err.status === 403) {
+      if (error.status === 401 || error.status === 403) {
           console.log('Session expired during revalidation. Clearing auth store.');
           pb.authStore.clear();
       } else {
-          console.warn('Revalidation skipped due to network/other error:', err.message);
+          console.warn('Revalidation skipped due to network/other error:', error.message);
           // Keep the local session for offline capability or retry later
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -128,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+  }, [checkUserRole, revalidateSession]);
 
   const loginWithGoogle = async () => {
     setLoading(true);
@@ -139,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         provider: 'google',
         requestKey 
       });
-      const model = authData.record;
+      const model = authData.record as AppAuthModel | null;
       
       if (!model) throw new Error('No user record found');
 
@@ -157,10 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(model);
       
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as RequestError;
       console.error('Login error:', error);
       pb.authStore.clear();
-      return { success: false, error: error.message };
+      return { success: false, error: authError.message };
     } finally {
       setLoading(false);
     }

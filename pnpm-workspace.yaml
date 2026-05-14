@@ -1,0 +1,4 @@
+allowBuilds:
+  '@fission-ai/openspec': true
+  sharp: true
+  unrs-resolver: true

@@ -6,15 +6,6 @@ import { ArrowRight, Check, ChevronDown, ChevronUp, X, Sparkles, Search, Briefca
 import { pb } from '@/lib/pocketbase';
 import { Project, RequestingArea, Personal, TechItem, ProjectStatusItem, ProjectTypeItem, ShiftItem, RoleItem, Program } from '@/app/types';
 import { fromLocalDateString, toLocalDateString, formatLocalDate } from '@/app/utils/date';
-import clsx from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-// Helper for classes
-function cn(...inputs: (string | undefined | null | false)[]) {
-  return twMerge(clsx(inputs));
-}
-
-const DEFAULT_SHIFTS = ['Mañana', 'Tarde'];
 
 interface WizardProps {
   onClose: () => void;
@@ -29,6 +20,45 @@ interface TempAssignment {
   roles: string[];
   active: boolean;
 }
+
+type RequestError = {
+  message?: string;
+  data?: {
+    data?: Record<string, { message?: string }>;
+  };
+};
+
+type WizardField = keyof Project | 'assignments';
+
+type WizardFieldValue = Project[keyof Project] | TempAssignment[] | string | number | boolean | string[] | null;
+
+type WizardOption = {
+  label: string;
+  value: string;
+};
+
+type WizardGroup = {
+  label: string;
+  field: 'frontend_tech' | 'backend_tech' | 'database';
+  options: TechItem[];
+};
+
+type WizardQuestion = {
+  id: string;
+  title?: string;
+  description?: string;
+  type: string;
+  field?: WizardField;
+  placeholder?: string;
+  inputType?: string;
+  searchable?: boolean;
+  options?: Array<WizardOption | string>;
+  groups?: WizardGroup[];
+  fields?: unknown;
+  validate: () => boolean | Promise<boolean>;
+};
+
+type ProjectCreatePayload = Record<string, string | number | boolean | string[] | null | undefined>;
 
 export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -166,10 +196,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
         }
       }
     }
-  }, [formData.start_date, formData.estimated_duration]);
+  }, [formData.start_date, formData.estimated_duration, formData.estimated_end_date]);
 
   // Questions configuration
-  const questions = [
+  const questions: WizardQuestion[] = [
     {
       id: 'intro',
       type: 'intro',
@@ -192,8 +222,9 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           });
           if (records.totalItems > 0) throw new Error('Ya existe un proyecto con este nombre.');
           return true;
-        } catch (e: any) {
-          if (e.message === 'Ya existe un proyecto con este nombre.') throw e;
+        } catch (e: unknown) {
+          const error = e as RequestError;
+          if (error.message === 'Ya existe un proyecto con este nombre.') throw e;
           console.error(e);
           return false;
         }
@@ -233,8 +264,9 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
           });
           if (records.totalItems > 0) throw new Error('Ya existe un proyecto con este código.');
           return true;
-        } catch (e: any) {
-          if (e.message === 'Ya existe un proyecto con este código.') throw e;
+        } catch (e: unknown) {
+          const error = e as RequestError;
+          if (error.message === 'Ya existe un proyecto con este código.') throw e;
           console.error(e);
           return false;
         }
@@ -404,9 +436,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       } else {
         isValid = result;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const requestError = error as RequestError;
       isValid = false;
-      errorMessage = error.message || errorMessage;
+      errorMessage = requestError.message || errorMessage;
     }
 
     if (isValid) {
@@ -504,8 +537,8 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
     setEditingAssignmentId(null);
   };
 
-  const updateField = (field: string, value: any) => {
-    if (field === 'assignments') {
+  const updateField = (field: WizardField | undefined, value: WizardFieldValue) => {
+    if (!field || field === 'assignments') {
       // Assignments are handled separately now
       return;
     } else {
@@ -521,7 +554,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       // Prepare data for submission
       // 1. Remove 'personal' field as it is now handled by assignments
       // 2. Ensure empty strings for optional dates/urls are converted to null to avoid validation errors
-      const projectData: Record<string, any> = { ...formData };
+      const projectData = { ...formData } as ProjectCreatePayload;
       
       // Explicitly set personal to null to avoid "empty string" validation error on relation field
       projectData.personal = null;
@@ -534,10 +567,10 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       if (projectData.program === '') projectData.program = null;
       
       // Convert dates to proper ISO strings with local timezone offset before saving
-      if (projectData.start_date) {
+      if (typeof projectData.start_date === 'string' && projectData.start_date) {
         projectData.start_date = fromLocalDateString(projectData.start_date);
       }
-      if (projectData.estimated_end_date) {
+      if (typeof projectData.estimated_end_date === 'string' && projectData.estimated_end_date) {
         projectData.estimated_end_date = fromLocalDateString(projectData.estimated_end_date);
       }
 
@@ -559,19 +592,20 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       }
 
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as RequestError;
       console.error('Error creating project:', err);
       
       let errorMessage = 'Error al crear el proyecto.';
       
-      if (err.data?.data) {
-        console.error('Validation data:', err.data.data);
-        const fieldErrors = Object.entries(err.data.data)
-          .map(([key, value]: [string, any]) => `${key}: ${value.message}`)
+      if (error.data?.data) {
+        console.error('Validation data:', error.data.data);
+        const fieldErrors = Object.entries(error.data.data)
+          .map(([key, value]) => `${key}: ${value.message}`)
           .join('\n');
         errorMessage += `\n\nErrores de validación:\n${fieldErrors}`;
-      } else if (err.message) {
-        errorMessage += `\n${err.message}`;
+      } else if (error.message) {
+        errorMessage += `\n${error.message}`;
       }
       
       alert(errorMessage);
@@ -581,7 +615,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
   };
 
   // Render Helpers
-  const renderField = (question: any) => {
+  const renderField = (question: WizardQuestion) => {
     switch (question.type) {
       case 'intro':
         return (
@@ -980,11 +1014,12 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
 
       case 'select':
         // Filter options if search is enabled
+        const selectOptions = (question.options ?? []).filter((opt): opt is WizardOption => typeof opt !== 'string');
         const filteredOptions = question.searchable 
-          ? question.options.filter((opt: any) => 
+          ? selectOptions.filter((opt) => 
               opt.label.toLowerCase().includes(searchTerm.toLowerCase())
             )
-          : question.options;
+          : selectOptions;
 
         return (
           <div className="w-full max-w-xl space-y-4">
@@ -1002,7 +1037,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
               </div>
             )}
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {filteredOptions.map((opt: any) => (
+            {filteredOptions?.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => {
@@ -1029,9 +1064,9 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
         );
 
       case 'cards':
-         return (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
-               {question.options.map((opt: { label: string, value: string }) => {
+          return (
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
+               {(question.options ?? []).filter((opt): opt is WizardOption => typeof opt !== 'string').map((opt) => {
                   const isSelected = (formData[question.field as keyof Project] as string[]).includes(opt.value);
                   return (
                      <button
@@ -1062,7 +1097,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       case 'multiselect':
           return (
              <div className="flex flex-wrap gap-3 w-full max-w-2xl justify-center">
-                {question.options.map((opt: string) => {
+                {((question.options ?? []) as string[]).map((opt) => {
                    const isSelected = (formData[question.field as keyof Project] as string[]).includes(opt);
                    return (
                       <button
@@ -1090,7 +1125,7 @@ export default function CreateProjectWizard({ onClose, onSuccess }: WizardProps)
       case 'multiselect-group':
           return (
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl p-2">
-                {question.groups.map((group: any) => (
+                {question.groups?.map((group) => (
                    <div key={group.label} className="space-y-3">
                       <h4 className="font-bold text-gray-500 border-b pb-2">{group.label}</h4>
                       <div className="space-y-2">

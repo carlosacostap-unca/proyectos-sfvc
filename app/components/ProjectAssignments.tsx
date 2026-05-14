@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
   Plus, Trash2, Edit2, Save, X, Search, 
   Calendar, Briefcase, User, Check, Clock
@@ -14,6 +14,13 @@ import { useAuth } from '@/app/contexts/AuthContext';
 interface ProjectAssignmentsProps {
   projectId: string;
 }
+
+type PocketBaseError = {
+  message?: string;
+  data?: {
+    data?: unknown;
+  };
+};
 
 export default function ProjectAssignments({ projectId }: ProjectAssignmentsProps) {
   const { isAdmin } = useAuth();
@@ -34,13 +41,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
     active: true
   });
 
-  useEffect(() => {
-    fetchAssignments();
-    fetchPersonal();
-    fetchRoles();
-  }, [projectId]);
-
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       const records = await pb.collection('project_assignments').getFullList<ProjectAssignment>({
         filter: `project = "${projectId}"`,
@@ -53,7 +54,13 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchAssignments();
+    fetchPersonal();
+    fetchRoles();
+  }, [fetchAssignments]);
 
   const fetchPersonal = async () => {
     try {
@@ -160,13 +167,14 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
       
       resetForm();
       fetchAssignments();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const pbError = error as PocketBaseError;
       console.error('Error saving assignment:', error);
       // Log detailed validation errors if available
-      if (error.data && error.data.data) {
-        console.error('Validation errors:', error.data.data);
+      if (pbError.data?.data) {
+        console.error('Validation errors:', pbError.data.data);
       }
-      toast.error(`Error al guardar: ${error.message}`);
+      toast.error(`Error al guardar: ${pbError.message || 'Verifique los datos'}`);
     }
   };
 
@@ -391,7 +399,7 @@ export default function ProjectAssignments({ projectId }: ProjectAssignmentsProp
                       {item.expand?.personal?.surname}, {item.expand?.personal?.name}
                     </h4>
                     <div className="flex flex-wrap gap-2 mt-1.5">
-                      {(Array.isArray(item.expand?.roles) ? item.expand.roles : (item.expand?.roles ? [item.expand.roles] : [])).map((role: any) => (
+                      {(Array.isArray(item.expand?.roles) ? item.expand.roles : (item.expand?.roles ? [item.expand.roles] : [])).map((role: RoleItem) => (
                         <span key={role.id} className="px-2 py-0.5 text-xs bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md text-gray-600 dark:text-gray-400">
                           {role.name}
                         </span>

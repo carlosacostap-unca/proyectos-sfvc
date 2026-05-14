@@ -7,7 +7,7 @@ interface WelcomeScreenProps {
 }
 
 export default function WelcomeScreen({ user }: WelcomeScreenProps) {
-  const isAdmin = (user as any)?.isAdmin;
+  const isAdmin = Boolean((user as AuthModel & { isAdmin?: boolean })?.isAdmin);
 
   return (
     <div className={`flex flex-col items-center justify-center w-full max-w-4xl mx-auto ${isAdmin ? 'mt-8 md:mt-20' : 'mt-4 md:mt-8'} text-center space-y-6 animate-fade-in pb-20 px-4 md:px-0`}>

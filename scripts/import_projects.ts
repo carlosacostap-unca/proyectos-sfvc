@@ -9,6 +9,43 @@ const pb = new PocketBase('https://pocketbase-proyectos-sfvc.acostaparra.com/');
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'proyectos_backend_adaptado.json');
 
+type ProjectImportRecord = Record<string, unknown> & {
+  code?: string;
+  system_name?: string;
+  year?: number;
+  estimated_duration?: number;
+  requesting_area_name?: string;
+  product_owner_name?: string;
+  project_type?: string;
+  status?: string;
+  shift?: string[];
+  backend_tech?: string[];
+  observations?: string;
+  drive_folder?: string;
+  server?: string;
+  frontend_tech?: string[];
+  database?: string[];
+  start_date?: string;
+  estimated_end_date?: string;
+};
+
+type ProjectPayload = Record<string, string | number | string[] | null | undefined>;
+
+type ValidationDetail = {
+  code?: string;
+  message?: string;
+  params?: {
+    value?: string;
+  };
+};
+
+type PocketBaseError = {
+  message?: string;
+  data?: {
+    data?: Record<string, ValidationDetail>;
+  } | Record<string, ValidationDetail>;
+};
+
 async function main() {
   console.log('🚀 Starting project import...');
 
@@ -22,9 +59,9 @@ async function main() {
   // Replace NaN with null to ensure valid JSON parsing if needed
   const cleanedContent = rawContent.replace(/:\s*NaN/g, ': null');
   
-  let projects: any[];
+  let projects: ProjectImportRecord[];
   try {
-    projects = JSON.parse(cleanedContent);
+    projects = JSON.parse(cleanedContent) as ProjectImportRecord[];
     console.log(`📦 Found ${projects.length} projects to process.`);
   } catch (err) {
     console.error('❌ Error parsing JSON:', err);
@@ -42,7 +79,7 @@ async function main() {
     const areas = await pb.collection('requesting_areas').getFullList();
     areas.forEach(a => areasMap.set(normalizeKey(a.name), a.id));
     console.log(`✅ Loaded ${areas.length} Requesting Areas.`);
-  } catch (err) {
+  } catch {
     console.warn('⚠️ Could not load Requesting Areas. Ensure the collection exists.');
   }
 
@@ -56,7 +93,7 @@ async function main() {
         personalMap.set(normalizeKey(`${p.surname} ${p.name}`), p.id);
     });
     console.log(`✅ Loaded ${personnel.length} Personal records.`);
-  } catch (err) {
+  } catch {
     console.warn('⚠️ Could not load Personal. Ensure the collection exists.');
   }
 
@@ -114,14 +151,14 @@ async function main() {
       }
 
       // Fix backend_tech
-      let pBackend = Array.isArray(p.backend_tech) ? p.backend_tech : [];
+      const pBackend = Array.isArray(p.backend_tech) ? p.backend_tech : [];
       // Removed incorrect mapping
       
       // Fix project_type "Ambos"
       if (pType === 'Ambos') pType = 'Interno';
 
       // Prepare payload
-      const payload: any = {
+      const payload: ProjectPayload = {
         code: p.code,
         system_name: p.system_name,
         year: p.year || new Date().getFullYear(),
@@ -148,11 +185,11 @@ async function main() {
       try {
         const existing = await pb.collection('projects').getFirstListItem(`code="${p.code}"`);
         existingId = existing.id;
-      } catch (e) {
+      } catch {
         // Not found, proceed to create
       }
 
-      const createOrUpdate = async (data: any) => {
+      const createOrUpdate = async (data: ProjectPayload) => {
           if (existingId) {
             await pb.collection('projects').update(existingId, data);
             updatedCount++;
@@ -166,13 +203,14 @@ async function main() {
 
       try {
         await createOrUpdate(payload);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const pbError = err as PocketBaseError;
          // Retry logic for invalid values
         let retried = false;
         
         // Determine where validation errors are stored
         // Based on logs, err.data seems to be the full response object containing a .data property
-        const validationErrors = (err.data && err.data.data) ? err.data.data : err.data;
+        const validationErrors = (('data' in (pbError.data || {}) ? pbError.data?.data : pbError.data) || {}) as Record<string, ValidationDetail>;
 
         if (validationErrors) {
           let changed = false;
@@ -188,7 +226,7 @@ async function main() {
                  
                  // If array, remove the bad value
                  if (Array.isArray(payload[field])) {
-                   payload[field] = payload[field].filter((v: any) => v !== badValue);
+                   payload[field] = (payload[field] as string[]).filter((v) => v !== badValue);
                    changed = true;
                  } 
                  // If string (single select), try to fallback or clear
@@ -210,24 +248,26 @@ async function main() {
              try {
                 await createOrUpdate(payload);
                 retried = true;
-             } catch (retryErr: any) {
-                console.error(`\n❌ Retry failed for ${p.code}:`, retryErr.message);
+             } catch (retryErr: unknown) {
+                const retryError = retryErr as PocketBaseError;
+                console.error(`\n❌ Retry failed for ${p.code}:`, retryError.message);
              }
           }
         }
   
         if (!retried) {
-          console.error(`\n❌ Error processing ${p.code}:`, err.message);
-          if (err.data) {
-            console.error('   Details:', JSON.stringify(err.data, null, 2));
+          console.error(`\n❌ Error processing ${p.code}:`, pbError.message);
+          if (pbError.data) {
+            console.error('   Details:', JSON.stringify(pbError.data, null, 2));
           }
           errorCount++;
         }
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as PocketBaseError;
       // Catch errors outside the createOrUpdate block (should not happen often)
-      console.error(`\n❌ Error processing ${p.code}:`, err.message);
+      console.error(`\n❌ Error processing ${p.code}:`, error.message);
       errorCount++;
     }
   }

@@ -27,6 +27,8 @@ export interface Personal {
   file_number: string; // Legajo
   email: string;
   phone: string;
+  working_hours?: number;
+  monthly_salary?: number;
   shift: string[]; // Relation to shifts (Multiple)
   main_role: string; // Relation to roles
   secondary_role: string; // Relation to roles
@@ -116,6 +118,8 @@ export interface ProjectNote {
   id: string;
   project: string; // Relation to projects
   user: string; // Relation to users
+  author_name?: string;
+  author_email?: string;
   content: string; // HTML/Rich Text
   created: string;
   updated: string;

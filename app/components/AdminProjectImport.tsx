@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { pb } from '@/lib/pocketbase';
-import { Project, RequestingArea, ProjectStatusItem, ProjectTypeItem, ShiftItem, TechItem, Personal } from '@/app/types';
-import { Upload, ArrowLeft, Loader2, Check, AlertTriangle, X, Save, FileText, Sparkles } from 'lucide-react';
+import { RequestingArea, ProjectStatusItem, ProjectTypeItem, ShiftItem, TechItem, Personal } from '@/app/types';
+import { Upload, ArrowLeft, Loader2, Check, AlertTriangle, X, Save, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { toLocalDateString, formatLocalDate, fromLocalDateString } from '@/app/utils/date';
+import { fromLocalDateString } from '@/app/utils/date';
 
 interface AdminProjectImportProps {
     onBack: () => void;
@@ -42,6 +42,18 @@ interface ImportedProject {
     isValid: boolean;
     errors: string[];
 }
+
+type RawImportedProject = Partial<Omit<ImportedProject, 'id' | 'isValid' | 'errors'>>;
+
+type ProjectImportPayload = Record<string, string | number | boolean | string[] | null | undefined>;
+
+type RequestError = {
+    status?: number;
+    message?: string;
+    data?: {
+        data?: Record<string, { message?: string }>;
+    };
+};
 
 export default function AdminProjectImport({ onBack }: AdminProjectImportProps) {
     const [file, setFile] = useState<File | null>(null);
@@ -115,15 +127,16 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
             }
 
             const data = await res.json();
-            const rawProjects = data.projects || [];
+            const rawProjects = (data.projects || []) as RawImportedProject[];
             
             // Map and validate
-            const processed = rawProjects.map((p: any, index: number) => mapAndValidate(p, index));
+            const processed = rawProjects.map((p, index) => mapAndValidate(p, index));
             setImportedProjects(processed);
             setStep('review');
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const error = e as RequestError;
             console.error(e);
-            toast.error(`Error: ${e.message}`);
+            toast.error(`Error: ${error.message || 'Error desconocido'}`);
         } finally {
             setProcessing(false);
         }
@@ -167,7 +180,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
         return names.map(n => findIdByName(n, options)).filter(id => id !== undefined) as string[];
     }
 
-    function mapAndValidate(p: any, index: number): ImportedProject {
+    function mapAndValidate(p: RawImportedProject, index: number): ImportedProject {
         const errors: string[] = [];
         
         // Required fields
@@ -186,20 +199,20 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
         // but since we wait for user click, the state 'areas', etc. in the scope of processFile 
         // (which is recreated on every render) will be the latest.
         
-        const areaId = findIdByName(p.requesting_area, areas);
+        const areaId = findIdByName(p.requesting_area ?? '', areas);
         if (p.requesting_area && !areaId) {
             errors.push(`Área "${p.requesting_area}" no encontrada en el sistema`);
         }
 
-        const statusId = findIdByName(p.status, statuses);
-        const personalId = findPersonalIdByName(p.personal);
+        const statusId = findIdByName(p.status ?? '', statuses);
+        const personalId = findPersonalIdByName(p.personal ?? '');
         
         // Arrays
-        const typeIds = findIdsByNames(p.project_type, types);
-        const feIds = findIdsByNames(p.frontend_tech, feTechs);
-        const beIds = findIdsByNames(p.backend_tech, beTechs);
-        const dbIds = findIdsByNames(p.database, dbTechs);
-        const shiftIds = findIdsByNames(p.shift, shifts);
+        const typeIds = findIdsByNames(p.project_type ?? [], types);
+        const feIds = findIdsByNames(p.frontend_tech ?? [], feTechs);
+        const beIds = findIdsByNames(p.backend_tech ?? [], beTechs);
+        const dbIds = findIdsByNames(p.database ?? [], dbTechs);
+        const shiftIds = findIdsByNames(p.shift ?? [], shifts);
 
         return {
             id: `temp-${index}`,
@@ -227,7 +240,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
             shift: Array.isArray(p.shift) ? p.shift : [],
             shift_ids: shiftIds,
             estimated_duration: p.estimated_duration || 0,
-            security_level: ['low', 'medium', 'high'].includes(p.security_level) ? p.security_level : '',
+            security_level: p.security_level && ['low', 'medium', 'high'].includes(p.security_level) ? p.security_level : '',
             isValid: errors.length === 0,
             errors
         };
@@ -249,21 +262,17 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                     if (existing) {
                         throw new Error(`El código ${p.code} ya existe (ID: ${existing.id})`);
                     }
-                } catch (e: any) {
+                } catch (e: unknown) {
+                    const error = e as RequestError;
                     // 404 means it doesn't exist, which is what we want
-                    if (e.status !== 404) {
+                    if (error.status !== 404) {
                          console.error(`Error checking existence for ${p.code}:`, e);
                          throw e; // Rethrow other errors (like 0 or 400 if query is bad)
                     }
                 }
 
-                // Helper to get names from IDs for Select fields
-                const getNamesFromIds = (ids: string[], collection: { id: string, name: string }[]) => {
-                    return ids.map(id => collection.find(item => item.id === id)?.name).filter(Boolean) as string[];
-                };
-
                 // Prepare payload with sanitized values
-                const payload: any = {
+                const payload: ProjectImportPayload = {
                     code: p.code,
                     system_name: p.system_name,
                     year: p.year,
@@ -291,13 +300,14 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
                 await pb.collection('projects').create(payload);
 
                 setImportProgress(prev => ({ ...prev, current: prev.current + 1, success: prev.success + 1 }));
-            } catch (e: any) {
+            } catch (e: unknown) {
+                const error = e as RequestError;
                 console.error(`Error importing ${p.code}:`, e);
                 // Extract useful error message
-                let errorMsg = e.message || "Error desconocido";
-                if (e.data && e.data.data) {
+                let errorMsg = error.message || "Error desconocido";
+                if (error.data?.data) {
                     // PocketBase validation errors often come in e.data.data
-                    const fieldErrors = Object.entries(e.data.data).map(([key, val]: [string, any]) => `${key}: ${val.message}`).join(', ');
+                    const fieldErrors = Object.entries(error.data.data).map(([key, val]) => `${key}: ${val.message}`).join(', ');
                     if (fieldErrors) errorMsg = `Validación fallida: ${fieldErrors}`;
                 }
                 
@@ -312,7 +322,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
         }, 500);
     };
 
-    const updateProject = (id: string, field: string, value: any) => {
+    const updateProject = (id: string, field: keyof ImportedProject, value: ImportedProject[keyof ImportedProject]) => {
         setImportedProjects(prev => prev.map(p => {
             if (p.id !== id) return p;
             
@@ -327,7 +337,7 @@ export default function AdminProjectImport({ onBack }: AdminProjectImportProps) 
         }));
     };
 
-    const handleMultiSelectChange = (id: string, field: string, e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleMultiSelectChange = (id: string, field: keyof ImportedProject, e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
         updateProject(id, field, selectedOptions);
     };

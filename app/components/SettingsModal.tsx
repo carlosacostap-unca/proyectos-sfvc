@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
-  X, Plus, Trash2, Check, AlertCircle, Loader2, Edit2, Save, 
+  X, Plus, Trash2, Check, AlertCircle, Loader2, Edit2,
   Settings, LayoutGrid, Users, Activity, Tag, 
   Monitor, Server, Database, ChevronRight, Clock, Briefcase, UserCheck, Milestone, Flag
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { toast } from 'sonner';
 
@@ -26,6 +27,18 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type PocketBaseValidationEntry = {
+  message?: string;
+};
+
+type PocketBaseError = {
+  status?: number;
+  message?: string;
+  data?: {
+    data?: Record<string, PocketBaseValidationEntry>;
+  };
+};
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsCategory>('areas');
@@ -72,7 +85,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const collection = getCollectionName(activeTab);
@@ -85,13 +98,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     if (isOpen) {
       fetchItems();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen, fetchItems]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,18 +120,19 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setNewItemName('');
       toast.success('Elemento agregado correctamente');
       fetchItems();
-    } catch (error: any) {
+    } catch (error: unknown) {
+            const pbError = error as PocketBaseError;
             console.error('Error adding item:', error);
-            let msg = error.message;
+            let msg = pbError.message;
             
             // Handle detailed validation errors from PocketBase
-            if (error.data?.data && Object.keys(error.data.data).length > 0) {
-                msg = Object.entries(error.data.data)
-                  .map(([k, v]: [string, any]) => `${k}: ${v.message}`)
+            if (pbError.data?.data && Object.keys(pbError.data.data).length > 0) {
+                msg = Object.entries(pbError.data.data)
+                  .map(([k, v]) => `${k}: ${v.message}`)
                   .join(', ');
-            } else if (error.status === 400) {
+            } else if (pbError.status === 400) {
                 msg = 'Error de validación (400). Verifica que la colección permita crear registros y que los datos sean válidos.';
-            } else if (error.status === 403) {
+            } else if (pbError.status === 403) {
                 msg = 'No tienes permisos para realizar esta acción. Verifica las API Rules de la colección.';
             }
             
@@ -185,7 +199,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   if (!isOpen) return null;
 
-  const NavItem = ({ id, icon: Icon, label }: { id: SettingsCategory; icon: any; label: string }) => (
+  const NavItem = ({ id, icon: Icon, label }: { id: SettingsCategory; icon: LucideIcon; label: string }) => (
     <button
       onClick={() => setActiveTab(id)}
       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${

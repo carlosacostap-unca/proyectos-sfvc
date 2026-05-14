@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
   MessageSquare, 
   Send, 
   Trash2, 
   Clock,
-  Loader2,
-  AlertCircle
+  Loader2
 } from 'lucide-react';
 import { formatLocalDate } from '@/app/utils/date';
+import Image from 'next/image';
 import { pb } from '@/lib/pocketbase';
-import { ProjectNote } from '@/app/types';
+import { ProjectNote, User } from '@/app/types';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import RichTextEditor from './RichTextEditor';
@@ -20,55 +20,67 @@ interface Props {
   projectId: string;
 }
 
+type ProjectNoteRealtimeEvent = {
+  action: 'create' | 'update' | 'delete' | string;
+  record: {
+    id: string;
+    project: string;
+  };
+};
+
+type ProjectNoteAuthor = Partial<User> & {
+  id: string;
+  collectionId?: string;
+  collectionName?: string;
+};
+
 export default function ProjectNotes({ projectId }: Props) {
   const { user, isAdmin } = useAuth();
   const [notes, setNotes] = useState<ProjectNote[]>([]);
+  const [authorsById, setAuthorsById] = useState<Record<string, ProjectNoteAuthor>>({});
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [isAssigned, setIsAssigned] = useState(false);
   const [checkingAssignment, setCheckingAssignment] = useState(true);
 
-  useEffect(() => {
-    if (!user) return; // Only subscribe if user is logged in
-
-    fetchNotes();
-    checkAssignment();
-
-    // Subscribe to realtime updates
-    const onRecordChange = (e: any) => {
-      if (e.record.project === projectId) {
-        if (e.action === 'create') {
-          fetchNotes(); // Refresh to get expanded user
-        } else if (e.action === 'delete') {
-          setNotes(prev => prev.filter(n => n.id !== e.record.id));
-        } else if (e.action === 'update') {
-            fetchNotes();
-        }
-      }
-    };
-
-    pb.collection('project_notes').subscribe('*', onRecordChange).catch((err) => {
-      console.error('Realtime subscription error:', err);
-    });
-
-    return () => {
-      pb.collection('project_notes').unsubscribe('*').catch((err) => {
-        // Ignore 404/client_id errors during cleanup as they are non-critical
-        if (err?.status !== 404) {
-             console.warn('Unsubscribe error:', err);
-        }
-      });
-    };
-  }, [projectId, user]);
-
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
     try {
       const records = await pb.collection('project_notes').getFullList<ProjectNote>({
         sort: '-created',
         filter: `project = "${projectId}"`,
         expand: 'user',
       });
+
+      const expandedAuthors = records.reduce<Record<string, ProjectNoteAuthor>>((acc, note) => {
+        if (note.expand?.user) {
+          acc[note.user] = note.expand.user;
+        }
+        return acc;
+      }, {});
+
+      const missingAuthorIds = Array.from(new Set(
+        records
+          .filter(note => note.user && !note.expand?.user)
+          .map(note => note.user)
+      ));
+
+      if (missingAuthorIds.length > 0) {
+        try {
+          const authorFilter = missingAuthorIds.map(id => `id = "${id}"`).join(' || ');
+          const users = await pb.collection('users').getFullList<User>({
+            filter: authorFilter,
+          });
+
+          users.forEach(author => {
+            expandedAuthors[author.id] = author;
+          });
+        } catch (authorError) {
+          console.warn('Could not resolve note authors:', authorError);
+        }
+      }
+
+      setAuthorsById(expandedAuthors);
       setNotes(records);
     } catch (error) {
       console.error('Error fetching notes:', error);
@@ -76,9 +88,9 @@ export default function ProjectNotes({ projectId }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
-  const checkAssignment = async () => {
+  const checkAssignment = useCallback(async () => {
     if (isAdmin) {
       setIsAssigned(true);
       setCheckingAssignment(false);
@@ -120,7 +132,40 @@ export default function ProjectNotes({ projectId }: Props) {
     } finally {
       setCheckingAssignment(false);
     }
-  };
+  }, [isAdmin, projectId, user]);
+
+  useEffect(() => {
+    if (!user) return; // Only subscribe if user is logged in
+
+    fetchNotes();
+    checkAssignment();
+
+    // Subscribe to realtime updates
+    const onRecordChange = (e: ProjectNoteRealtimeEvent) => {
+      if (e.record.project === projectId) {
+        if (e.action === 'create') {
+          fetchNotes(); // Refresh to get expanded user
+        } else if (e.action === 'delete') {
+          setNotes(prev => prev.filter(n => n.id !== e.record.id));
+        } else if (e.action === 'update') {
+            fetchNotes();
+        }
+      }
+    };
+
+    pb.collection('project_notes').subscribe('*', onRecordChange).catch((err) => {
+      console.error('Realtime subscription error:', err);
+    });
+
+    return () => {
+      pb.collection('project_notes').unsubscribe('*').catch((err) => {
+        // Ignore 404/client_id errors during cleanup as they are non-critical
+        if (err?.status !== 404) {
+             console.warn('Unsubscribe error:', err);
+        }
+      });
+    };
+  }, [checkAssignment, fetchNotes, projectId, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +178,8 @@ export default function ProjectNotes({ projectId }: Props) {
       await pb.collection('project_notes').create({
         project: projectId,
         user: user.id,
+        author_name: user.name || user.email || user.username || '',
+        author_email: user.email || '',
         content: newNote,
       });
       setNewNote('');
@@ -161,6 +208,18 @@ export default function ProjectNotes({ projectId }: Props) {
     return formatLocalDate(dateStr);
   };
 
+  const getAuthor = (note: ProjectNote) => {
+    if (note.expand?.user) return note.expand.user;
+    if (note.user && authorsById[note.user]) return authorsById[note.user];
+    if (note.user && user?.id === note.user) return user as ProjectNoteAuthor;
+    return null;
+  };
+
+  const getAuthorName = (note: ProjectNote) => {
+    const author = getAuthor(note);
+    return author?.name || note.author_name || author?.email || note.author_email || author?.username || 'Usuario desconocido';
+  };
+
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 flex flex-col h-[600px]">
       <div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex items-center gap-2">
@@ -182,50 +241,58 @@ export default function ProjectNotes({ projectId }: Props) {
             <p>No hay notas todavía</p>
           </div>
         ) : (
-          notes.map((note) => (
-            <div key={note.id} className="group flex gap-3">
-              <div className="flex-shrink-0">
-                {note.expand?.user?.avatar ? (
-                  <img 
-                    src={pb.files.getUrl(note.expand.user, note.expand.user.avatar)} 
-                    alt={note.expand.user.name}
-                    className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-700"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xs border border-indigo-200 dark:border-indigo-800">
-                    {note.expand?.user?.name?.charAt(0) || '?'}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 relative group-hover:bg-gray-100 dark:group-hover:bg-zinc-800 transition-colors">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {note.expand?.user?.name || 'Usuario desconocido'}
-                    </span>
-                    <div className="flex items-center gap-1 opacity-70">
-                      <Clock size={10} />
-                      {formatDate(note.created)}
+          notes.map((note) => {
+            const author = getAuthor(note);
+            const authorName = getAuthorName(note);
+
+            return (
+              <div key={note.id} className="group flex gap-3">
+                <div className="flex-shrink-0">
+                  {author?.avatar ? (
+                    <Image
+                      src={pb.files.getUrl(author, author.avatar)}
+                      alt={authorName}
+                      width={32}
+                      height={32}
+                      unoptimized
+                      className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-zinc-700"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xs border border-indigo-200 dark:border-indigo-800">
+                      {authorName.charAt(0).toUpperCase()}
                     </div>
-                  </div>
-                  <div 
-                    className="text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none [&>p]:mb-0"
-                    dangerouslySetInnerHTML={{ __html: note.content }}
-                  />
-                  
-                  {(user?.isAdmin || user?.id === note.user) && (
-                    <button
-                      onClick={() => handleDelete(note.id)}
-                      className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
-                      title="Eliminar nota"
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   )}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 relative group-hover:bg-gray-100 dark:group-hover:bg-zinc-800 transition-colors">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {authorName}
+                      </span>
+                      <div className="flex items-center gap-1 opacity-70">
+                        <Clock size={10} />
+                        {formatDate(note.created)}
+                      </div>
+                    </div>
+                    <div
+                      className="text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none [&>p]:mb-0"
+                      dangerouslySetInnerHTML={{ __html: note.content }}
+                    />
+
+                    {(isAdmin || user?.id === note.user) && (
+                      <button
+                        onClick={() => handleDelete(note.id)}
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Eliminar nota"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

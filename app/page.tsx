@@ -8,6 +8,7 @@ import AdminProjectImport from "./components/AdminProjectImport";
 import ProgramList from "./components/ProgramList";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { LogOut, Users, Settings, Clock, Trash2, Upload, Layers, Calendar } from "lucide-react";
 import { pb } from "@/lib/pocketbase";
@@ -52,9 +53,12 @@ export default function Home() {
           <div className="flex items-center gap-4 pointer-events-auto p-8 lg:p-0">
             <div className="flex items-center gap-3">
                {avatarUrl ? (
-                  <img 
+                  <Image
                     src={avatarUrl} 
                     alt="Avatar" 
+                    width={40}
+                    height={40}
+                    unoptimized
                     className={`w-10 h-10 rounded-full border-2 object-cover ${isAdmin ? 'border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'border-gray-200'}`}
                   />
               ) : (

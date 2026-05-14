@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
-  Plus, Trash2, Edit2, Save, X, Search, 
-  Calendar, Briefcase, User, Check, Clock, Milestone, Flag, AlignLeft
+  Plus, Trash2, Edit2, Save,
+  Calendar, User, Milestone, Flag, AlignLeft
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
 import { ProjectTimelineItem, Personal, PhaseItem, PhaseStatusItem } from '@/app/types';
@@ -14,6 +14,19 @@ import { useAuth } from '@/app/contexts/AuthContext';
 interface ProjectPhasesProps {
   projectId: string;
 }
+
+type TimelinePayload = Record<string, string | null | undefined>;
+
+type PocketBaseValidationDetail = {
+  message?: string;
+};
+
+type PocketBaseError = {
+  message?: string;
+  data?: {
+    data?: Record<string, PocketBaseValidationDetail>;
+  } | Record<string, PocketBaseValidationDetail>;
+};
 
 export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
   const { isAdmin } = useAuth();
@@ -37,14 +50,7 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
     observations: ''
   });
 
-  useEffect(() => {
-    fetchTimeline();
-    fetchPhases();
-    fetchStatuses();
-    fetchPersonal();
-  }, [projectId]);
-
-  const fetchTimeline = async () => {
+  const fetchTimeline = useCallback(async () => {
     try {
       const records = await pb.collection('project_timeline').getFullList<ProjectTimelineItem>({
         filter: `project = "${projectId}"`,
@@ -58,7 +64,14 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchTimeline();
+    fetchPhases();
+    fetchStatuses();
+    fetchPersonal();
+  }, [fetchTimeline]);
 
   const fetchPhases = async () => {
     try {
@@ -152,17 +165,19 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
     }
 
     try {
-    const dataToSave = {
-      ...formData,
+    const dataToSave: TimelinePayload = {
+      project: projectId,
+      phase: formData.phase,
       planned_start_date: formData.planned_start_date ? fromLocalDateString(formData.planned_start_date) : null,
       real_start_date: formData.real_start_date ? fromLocalDateString(formData.real_start_date) : null,
       planned_end_date: formData.planned_end_date ? fromLocalDateString(formData.planned_end_date) : null,
       real_end_date: formData.real_end_date ? fromLocalDateString(formData.real_end_date) : null,
       status: formData.status || null,
       responsible: formData.responsible || null,
+      observations: formData.observations || null,
     };
 
-      const cleanData: any = { ...dataToSave };
+      const cleanData: TimelinePayload = { ...dataToSave };
       
       // Remove keys with null values if they are optional and might cause issues
       Object.keys(cleanData).forEach(key => {
@@ -186,20 +201,21 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
       }
       resetForm();
       fetchTimeline();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const pbError = error as PocketBaseError;
       console.error('Error saving timeline item:', error);
       
       // Enhanced error handling to show specific validation messages
-      const errorData = error.data?.data || error.data || {};
+      const errorData = ('data' in (pbError.data || {}) ? pbError.data?.data : pbError.data) || {};
       const errorMessages = [];
       
       if (Object.keys(errorData).length > 0) {
-        for (const [field, details] of Object.entries(errorData as Record<string, any>)) {
+        for (const [field, details] of Object.entries(errorData as Record<string, PocketBaseValidationDetail>)) {
            errorMessages.push(`${field}: ${details.message}`);
         }
         toast.error(`Error de validación: ${errorMessages.join(', ')}`);
       } else {
-        toast.error(`Error al guardar: ${error.message}`);
+        toast.error(`Error al guardar: ${pbError.message || 'Error desconocido'}`);
       }
     }
   };
@@ -410,7 +426,7 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
                     
                     {item.observations && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                        "{item.observations}"
+                        &quot;{item.observations}&quot;
                       </p>
                     )}
 

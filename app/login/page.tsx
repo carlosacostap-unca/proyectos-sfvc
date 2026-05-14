@@ -8,14 +8,10 @@ function LoginForm() {
   const { user, loginWithGoogle, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const errorParam = searchParams.get('error');
-    if (errorParam === 'inactive') {
-      setError('Tu cuenta ha sido desactivada. Por favor contacta al administrador.');
-    }
-  }, [searchParams]);
+  const initialError = searchParams.get('error') === 'inactive'
+    ? 'Tu cuenta ha sido desactivada. Por favor contacta al administrador.'
+    : '';
+  const [error, setError] = useState(initialError);
 
   useEffect(() => {
     if (user && !loading) {
@@ -38,7 +34,7 @@ function LoginForm() {
         }
       }
       // Router push is handled in useEffect or AuthContext
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Unexpected login error:', err);
       setError('Error inesperado al iniciar sesión.');
     }
