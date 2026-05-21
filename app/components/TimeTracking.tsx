@@ -656,6 +656,16 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
               )}
 
               {isAdmin && !isEditing && (
+                <>
+                  <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 shadow-sm">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 pl-2">Fecha:</span>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="bg-transparent border-none text-sm font-medium text-indigo-700 dark:text-indigo-400 focus:ring-0 cursor-pointer py-1 dark:bg-zinc-800"
+                    />
+                  </div>
                   <button
                       onClick={() => switchToDaily(date)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
@@ -663,6 +673,7 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
                       <Calendar size={16} />
                       Cargar fecha
                   </button>
+                </>
               )}
             </div>
           </div>
