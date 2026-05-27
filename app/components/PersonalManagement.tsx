@@ -733,16 +733,6 @@ export default function PersonalManagement() {
                           className="w-full min-w-0 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                         />
                       </div>
-                      <div className="sm:col-span-2">
-                        <button
-                          type="button"
-                          onClick={handleSaveCompensation}
-                          className="w-full h-[42px] px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
-                        >
-                          <Save size={15} />
-                          {editingCompensationId ? 'Actualizar' : 'Agregar'}
-                        </button>
-                      </div>
                     </div>
 
                     <div>
@@ -786,6 +776,15 @@ export default function PersonalManagement() {
                         className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveCompensation}
+                      className="w-full h-[42px] px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                    >
+                      <Save size={15} />
+                      {editingCompensationId ? 'Actualizar' : 'Agregar'}
+                    </button>
 
                     <div className="space-y-2">
                       {loadingCompensation ? (
