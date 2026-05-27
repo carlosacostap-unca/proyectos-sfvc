@@ -36,6 +36,11 @@ type CompensationFormData = {
   observations: string;
 };
 
+type CompensationDateInputs = {
+  start: string;
+  end: string;
+};
+
 const formatCurrency = (value?: number) => {
   if (!value) return '-';
   return new Intl.NumberFormat('es-AR', {
@@ -43,6 +48,36 @@ const formatCurrency = (value?: number) => {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
+};
+
+const formatDateDisplay = (value: string | Date | null | undefined) => {
+  const localDate = value ? toLocalDateString(value) : '';
+  if (!localDate) return '';
+  const [year, month, day] = localDate.split('-');
+  return `${day}/${month}/${year}`;
+};
+
+const parseDateDisplay = (value: string) => {
+  const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return '';
+
+  const [, day, month, year] = match;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+  const isValid =
+    parsed.getFullYear() === Number(year) &&
+    parsed.getMonth() === Number(month) - 1 &&
+    parsed.getDate() === Number(day);
+
+  return isValid ? `${year}-${month}-${day}` : '';
+};
+
+const normalizeDateInput = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  const parts = [];
+  if (digits.length > 0) parts.push(digits.slice(0, 2));
+  if (digits.length > 2) parts.push(digits.slice(2, 4));
+  if (digits.length > 4) parts.push(digits.slice(4, 8));
+  return parts.join('/');
 };
 
 const formatCompensationShiftNames = (item: PersonalCompensationPeriod, shifts: ShiftItem[]) => {
@@ -98,6 +133,10 @@ export default function PersonalManagement() {
     shifts: [],
     observations: '',
   });
+  const [compensationDateInputs, setCompensationDateInputs] = useState<CompensationDateInputs>({
+    start: formatDateDisplay(new Date()),
+    end: '',
+  });
 
   const fetchRoles = async () => {
     try {
@@ -149,13 +188,18 @@ export default function PersonalManagement() {
   };
 
   const resetCompensationForm = (personalId = editingId || '') => {
+    const today = toLocalDateString(new Date());
     setCompensationForm({
       personal: personalId,
-      start_date: toLocalDateString(new Date()),
+      start_date: today,
       end_date: '',
       monthly_salary: 0,
       shifts: [],
       observations: '',
+    });
+    setCompensationDateInputs({
+      start: formatDateDisplay(today),
+      end: '',
     });
     setEditingCompensationId(null);
   };
@@ -301,21 +345,31 @@ export default function PersonalManagement() {
   };
 
   const handleEditCompensation = (item: PersonalCompensationPeriod) => {
+    const startDate = item.start_date ? toLocalDateString(item.start_date) : '';
+    const endDate = item.end_date ? toLocalDateString(item.end_date) : '';
     setEditingCompensationId(item.id);
     setCompensationForm({
       personal: item.personal,
-      start_date: item.start_date ? toLocalDateString(item.start_date) : '',
-      end_date: item.end_date ? toLocalDateString(item.end_date) : '',
+      start_date: startDate,
+      end_date: endDate,
       monthly_salary: item.monthly_salary || 0,
       shifts: Array.isArray(item.shifts) ? item.shifts : [],
       observations: item.observations || '',
     });
+    setCompensationDateInputs({
+      start: formatDateDisplay(startDate),
+      end: formatDateDisplay(endDate),
+    });
   };
 
   const validateCompensationForm = () => {
+    const parsedStartDate = parseDateDisplay(compensationDateInputs.start);
+    const parsedEndDate = compensationDateInputs.end ? parseDateDisplay(compensationDateInputs.end) : '';
+
     if (!editingId) return 'Primero debe guardar el personal.';
-    if (!compensationForm.start_date) return 'La fecha de inicio es obligatoria.';
-    if (compensationForm.end_date && compensationForm.end_date < compensationForm.start_date) {
+    if (!parsedStartDate) return 'La fecha de inicio debe tener formato dd/MM/aaaa.';
+    if (compensationDateInputs.end && !parsedEndDate) return 'La fecha de fin debe tener formato dd/MM/aaaa.';
+    if (parsedEndDate && parsedEndDate < parsedStartDate) {
       return 'La fecha de fin no puede ser anterior al inicio.';
     }
     if (!Number.isFinite(compensationForm.monthly_salary) || compensationForm.monthly_salary < 0) {
@@ -327,8 +381,8 @@ export default function PersonalManagement() {
       {
         id: editingCompensationId || '',
         personal: editingId,
-        start_date: compensationForm.start_date,
-        end_date: compensationForm.end_date || null,
+        start_date: parsedStartDate,
+        end_date: parsedEndDate || null,
       },
       compensationPeriods,
     );
@@ -346,10 +400,13 @@ export default function PersonalManagement() {
 
     if (!editingId) return;
 
+    const parsedStartDate = parseDateDisplay(compensationDateInputs.start);
+    const parsedEndDate = compensationDateInputs.end ? parseDateDisplay(compensationDateInputs.end) : '';
+
     const payload = {
       personal: editingId,
-      start_date: fromLocalDateString(compensationForm.start_date),
-      end_date: compensationForm.end_date ? fromLocalDateString(compensationForm.end_date) : null,
+      start_date: fromLocalDateString(parsedStartDate),
+      end_date: parsedEndDate ? fromLocalDateString(parsedEndDate) : null,
       monthly_salary: compensationForm.monthly_salary,
       shifts: compensationForm.shifts,
       observations: compensationForm.observations,
@@ -632,26 +689,40 @@ export default function PersonalManagement() {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
                         <input
-                          type="date"
-                          value={compensationForm.start_date}
-                          onChange={(e) => setCompensationForm({...compensationForm, start_date: e.target.value})}
-                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="dd/mm/aaaa"
+                          value={compensationDateInputs.start}
+                          onChange={(e) => {
+                            const value = normalizeDateInput(e.target.value);
+                            setCompensationDateInputs({...compensationDateInputs, start: value});
+                            const parsed = parseDateDisplay(value);
+                            if (parsed) setCompensationForm({...compensationForm, start_date: parsed});
+                          }}
+                          className="w-full min-w-0 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm tabular-nums"
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
                         <input
-                          type="date"
-                          value={compensationForm.end_date}
-                          onChange={(e) => setCompensationForm({...compensationForm, end_date: e.target.value})}
-                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="dd/mm/aaaa"
+                          value={compensationDateInputs.end}
+                          onChange={(e) => {
+                            const value = normalizeDateInput(e.target.value);
+                            setCompensationDateInputs({...compensationDateInputs, end: value});
+                            const parsed = parseDateDisplay(value);
+                            setCompensationForm({...compensationForm, end_date: parsed});
+                          }}
+                          className="w-full min-w-0 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm tabular-nums"
                         />
                       </div>
-                      <div>
+                      <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sueldo mensual</label>
                         <input
                           type="number"
@@ -659,14 +730,14 @@ export default function PersonalManagement() {
                           step="0.01"
                           value={compensationForm.monthly_salary || ''}
                           onChange={(e) => setCompensationForm({...compensationForm, monthly_salary: e.target.value === '' ? 0 : Number(e.target.value)})}
-                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                          className="w-full min-w-0 px-4 py-2.5 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                         />
                       </div>
-                      <div className="flex items-end">
+                      <div className="sm:col-span-2">
                         <button
                           type="button"
                           onClick={handleSaveCompensation}
-                          className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                          className="w-full h-[42px] px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
                         >
                           <Save size={15} />
                           {editingCompensationId ? 'Actualizar' : 'Agregar'}
@@ -732,9 +803,9 @@ export default function PersonalManagement() {
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
                                 <Calendar size={14} className="text-gray-400" />
-                                <span>{toLocalDateString(period.start_date)}</span>
+                                <span>{formatDateDisplay(period.start_date)}</span>
                                 <span className="text-gray-400">a</span>
-                                <span>{period.end_date ? toLocalDateString(period.end_date) : 'Actual'}</span>
+                                <span>{period.end_date ? formatDateDisplay(period.end_date) : 'Actual'}</span>
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 {formatCurrency(period.monthly_salary)} · {formatCompensationShiftNames(period, shifts)} · {deriveDailyHours(period)} h/dia
