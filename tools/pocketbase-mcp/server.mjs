@@ -24,12 +24,14 @@ const expectedCollections = [
   "personal",
   "project_notes",
   "project_assignments",
+  "personal_compensation_periods",
   "work_logs",
   "users",
 ];
 
 const expectedFields = {
   personal: ["working_hours", "monthly_salary"],
+  personal_compensation_periods: ["personal", "start_date", "end_date", "monthly_salary", "shifts"],
   project_notes: ["author_name", "author_email"],
   work_logs: ["description"],
 };

@@ -61,6 +61,30 @@ Registro del personal, empleados o colaboradores del sistema.
 | `created` | `string` | Fecha de creación ||
 | `updated` | `string` | Fecha de actualización ||
 
+### `personal_compensation_periods` (Periodos de Compensacion)
+Historial de sueldo mensual y turnos vigentes para cada persona. Se usa para calcular costos historicos de proyectos sin depender de los datos actuales del registro `personal`.
+
+| Campo | Tipo | DescripciÃ³n | RelaciÃ³n |
+| --- | --- | --- | --- |
+| `id` | `string` | Identificador unico ||
+| `personal` | `string` | Persona a la que corresponde el periodo | Relacion a `personal` |
+| `start_date` | `string` | Fecha de inicio del periodo (ISO Date) ||
+| `end_date` | `string` | Fecha de fin del periodo (opcional; vacia si sigue vigente) ||
+| `monthly_salary` | `number` | Sueldo mensual fijo del periodo ||
+| `shifts` | `string[]` | Turnos vigentes en el periodo | Multiple a `shifts` |
+| `observations` | `string` | Observaciones opcionales ||
+| `created` | `string` | Fecha de creacion ||
+| `updated` | `string` | Fecha de actualizacion ||
+
+Regla de calculo inicial:
+
+```text
+horas_diarias_base = cantidad_de_turnos * 4
+horas_mensuales_base = horas_diarias_base * 22
+valor_hora = monthly_salary / horas_mensuales_base
+costo_log = work_logs.hours * valor_hora
+```
+
 ### `users` (Usuarios)
 Usuarios que tienen acceso al sistema (autenticación).
 

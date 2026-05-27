@@ -4,12 +4,18 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Plus, Save, X, Search,
   FileText, Phone, Mail,
-  Check, Upload, Clock, DollarSign
+  Check, Upload, Clock, DollarSign,
+  Calendar, Edit2, Trash2, AlertCircle
 } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { Personal, RoleItem, ShiftItem, StaffStatusItem } from '@/app/types';
+import { Personal, PersonalCompensationPeriod, RoleItem, ShiftItem, StaffStatusItem } from '@/app/types';
 import { toast } from 'sonner';
 import { toLocalDateString, fromLocalDateString } from '@/app/utils/date';
+import { listCompensationPeriodsByPersonal } from '@/app/services/compensationPeriods';
+import {
+  deriveDailyHours,
+  findOverlappingCompensationPeriod,
+} from '@/app/utils/compensation';
 
 type RequestError = {
   message?: string;
@@ -21,6 +27,15 @@ type PersonalWithFlexibleShift = Omit<Personal, 'expand'> & {
   };
 };
 
+type CompensationFormData = {
+  personal: string;
+  start_date: string;
+  end_date: string;
+  monthly_salary: number;
+  shifts: string[];
+  observations: string;
+};
+
 const formatCurrency = (value?: number) => {
   if (!value) return '-';
   return new Intl.NumberFormat('es-AR', {
@@ -28,6 +43,14 @@ const formatCurrency = (value?: number) => {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
+};
+
+const formatCompensationShiftNames = (item: PersonalCompensationPeriod, shifts: ShiftItem[]) => {
+  const expandedShifts = item.expand?.shifts;
+  if (expandedShifts && expandedShifts.length > 0) {
+    return expandedShifts.map(s => s.name).join(', ');
+  }
+  return item.shifts.map(id => shifts.find(s => s.id === id)?.name || id).join(', ');
 };
 
 const formatShiftNames = (item: Personal) => {
@@ -64,6 +87,17 @@ export default function PersonalManagement() {
   });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [compensationPeriods, setCompensationPeriods] = useState<PersonalCompensationPeriod[]>([]);
+  const [loadingCompensation, setLoadingCompensation] = useState(false);
+  const [editingCompensationId, setEditingCompensationId] = useState<string | null>(null);
+  const [compensationForm, setCompensationForm] = useState<CompensationFormData>({
+    personal: '',
+    start_date: toLocalDateString(new Date()),
+    end_date: '',
+    monthly_salary: 0,
+    shifts: [],
+    observations: '',
+  });
 
   const fetchRoles = async () => {
     try {
@@ -114,6 +148,37 @@ export default function PersonalManagement() {
     }
   };
 
+  const resetCompensationForm = (personalId = editingId || '') => {
+    setCompensationForm({
+      personal: personalId,
+      start_date: toLocalDateString(new Date()),
+      end_date: '',
+      monthly_salary: 0,
+      shifts: [],
+      observations: '',
+    });
+    setEditingCompensationId(null);
+  };
+
+  const fetchCompensationPeriods = async (personalId: string) => {
+    if (!personalId) {
+      setCompensationPeriods([]);
+      return;
+    }
+
+    try {
+      setLoadingCompensation(true);
+      const records = await listCompensationPeriodsByPersonal(personalId);
+      setCompensationPeriods(records);
+    } catch (error) {
+      console.error('Error fetching compensation periods:', error);
+      setCompensationPeriods([]);
+      toast.error('No se pudo cargar el historial salarial. Verifique que la coleccion exista.');
+    } finally {
+      setLoadingCompensation(false);
+    }
+  };
+
   useEffect(() => {
     const loadInitialData = async () => {
       await Promise.all([
@@ -148,6 +213,8 @@ export default function PersonalManagement() {
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsEditing(false);
     setEditingId(null);
+    setCompensationPeriods([]);
+    resetCompensationForm('');
   };
 
   const handleEdit = (item: Personal) => {
@@ -172,6 +239,8 @@ export default function PersonalManagement() {
     });
     setEditingId(item.id);
     setIsEditing(true);
+    resetCompensationForm(item.id);
+    void fetchCompensationPeriods(item.id);
   };
 
   const handleDelete = async (id: string) => {
@@ -228,6 +297,103 @@ export default function PersonalManagement() {
       const requestError = error as RequestError;
       console.error('Error saving personal:', error);
       toast.error(`Error al guardar: ${requestError.message || 'Error desconocido'}`);
+    }
+  };
+
+  const handleEditCompensation = (item: PersonalCompensationPeriod) => {
+    setEditingCompensationId(item.id);
+    setCompensationForm({
+      personal: item.personal,
+      start_date: item.start_date ? toLocalDateString(item.start_date) : '',
+      end_date: item.end_date ? toLocalDateString(item.end_date) : '',
+      monthly_salary: item.monthly_salary || 0,
+      shifts: Array.isArray(item.shifts) ? item.shifts : [],
+      observations: item.observations || '',
+    });
+  };
+
+  const validateCompensationForm = () => {
+    if (!editingId) return 'Primero debe guardar el personal.';
+    if (!compensationForm.start_date) return 'La fecha de inicio es obligatoria.';
+    if (compensationForm.end_date && compensationForm.end_date < compensationForm.start_date) {
+      return 'La fecha de fin no puede ser anterior al inicio.';
+    }
+    if (!Number.isFinite(compensationForm.monthly_salary) || compensationForm.monthly_salary < 0) {
+      return 'El sueldo mensual debe ser un numero valido.';
+    }
+    if (compensationForm.shifts.length === 0) return 'Debe seleccionar al menos un turno.';
+
+    const overlap = findOverlappingCompensationPeriod(
+      {
+        id: editingCompensationId || '',
+        personal: editingId,
+        start_date: compensationForm.start_date,
+        end_date: compensationForm.end_date || null,
+      },
+      compensationPeriods,
+    );
+
+    if (overlap) return 'El periodo se superpone con otro periodo salarial existente.';
+    return null;
+  };
+
+  const handleSaveCompensation = async () => {
+    const validationError = validateCompensationForm();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
+    if (!editingId) return;
+
+    const payload = {
+      personal: editingId,
+      start_date: fromLocalDateString(compensationForm.start_date),
+      end_date: compensationForm.end_date ? fromLocalDateString(compensationForm.end_date) : null,
+      monthly_salary: compensationForm.monthly_salary,
+      shifts: compensationForm.shifts,
+      observations: compensationForm.observations,
+    };
+
+    try {
+      if (editingCompensationId) {
+        await pb.collection('personal_compensation_periods').update(editingCompensationId, payload);
+        toast.success('Periodo salarial actualizado');
+      } else {
+        await pb.collection('personal_compensation_periods').create(payload);
+        toast.success('Periodo salarial creado');
+      }
+
+      if (!payload.end_date) {
+        await pb.collection('personal').update(editingId, {
+          monthly_salary: payload.monthly_salary,
+          working_hours: deriveDailyHours({ shifts: payload.shifts }),
+          shift: payload.shifts,
+        });
+      }
+
+      resetCompensationForm(editingId);
+      await fetchCompensationPeriods(editingId);
+      await fetchPersonal();
+    } catch (error: unknown) {
+      const requestError = error as RequestError;
+      console.error('Error saving compensation period:', error);
+      toast.error(`Error al guardar periodo: ${requestError.message || 'Verifique los datos'}`);
+    }
+  };
+
+  const handleDeleteCompensation = async (id: string) => {
+    if (!window.confirm('Â¿EstÃ¡s seguro de eliminar este periodo salarial?')) return;
+    if (!editingId) return;
+
+    try {
+      await pb.collection('personal_compensation_periods').delete(id);
+      toast.success('Periodo salarial eliminado');
+      resetCompensationForm(editingId);
+      await fetchCompensationPeriods(editingId);
+    } catch (error) {
+      console.error('Error deleting compensation period:', error);
+      toast.error('Error al eliminar periodo salarial');
     }
   };
 
@@ -435,6 +601,169 @@ export default function PersonalManagement() {
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50/60 dark:bg-zinc-800/40 p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <DollarSign size={16} className="text-emerald-600" />
+                      Historial salarial
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Sueldo mensual y turnos vigentes por periodo.
+                    </p>
+                  </div>
+                  {editingCompensationId && (
+                    <button
+                      type="button"
+                      onClick={() => resetCompensationForm(editingId || '')}
+                      className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      Nuevo periodo
+                    </button>
+                  )}
+                </div>
+
+                {!editingId ? (
+                  <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg px-3 py-2">
+                    <AlertCircle size={16} />
+                    Guardar el personal antes de cargar periodos salariales.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
+                        <input
+                          type="date"
+                          value={compensationForm.start_date}
+                          onChange={(e) => setCompensationForm({...compensationForm, start_date: e.target.value})}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+                        <input
+                          type="date"
+                          value={compensationForm.end_date}
+                          onChange={(e) => setCompensationForm({...compensationForm, end_date: e.target.value})}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sueldo mensual</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={compensationForm.monthly_salary || ''}
+                          onChange={(e) => setCompensationForm({...compensationForm, monthly_salary: e.target.value === '' ? 0 : Number(e.target.value)})}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={handleSaveCompensation}
+                          className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Save size={15} />
+                          {editingCompensationId ? 'Actualizar' : 'Agregar'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Turnos del periodo</label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg min-h-[54px]">
+                        {shifts.map(shift => {
+                          const isSelected = compensationForm.shifts.includes(shift.id);
+                          return (
+                            <button
+                              key={shift.id}
+                              type="button"
+                              onClick={() => {
+                                const nextShifts = isSelected
+                                  ? compensationForm.shifts.filter(id => id !== shift.id)
+                                  : [...compensationForm.shifts, shift.id];
+                                setCompensationForm({...compensationForm, shifts: nextShifts});
+                              }}
+                              className={`px-3 py-1.5 text-xs rounded-lg border transition-all flex items-center gap-1.5 ${
+                                isSelected
+                                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-gray-400 dark:hover:border-zinc-600'
+                              }`}
+                            >
+                              {isSelected && <Check size={12} className="stroke-[3]" />}
+                              {shift.name}
+                            </button>
+                          );
+                        })}
+                        <span className="ml-auto self-center text-xs text-gray-500 dark:text-gray-400">
+                          {deriveDailyHours({ shifts: compensationForm.shifts })} h/dia
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones del periodo</label>
+                      <input
+                        type="text"
+                        value={compensationForm.observations}
+                        onChange={(e) => setCompensationForm({...compensationForm, observations: e.target.value})}
+                        className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      {loadingCompensation ? (
+                        <div className="text-sm text-gray-500 py-3">Cargando periodos...</div>
+                      ) : compensationPeriods.length === 0 ? (
+                        <div className="text-sm text-gray-500 py-3 border border-dashed border-gray-200 dark:border-zinc-700 rounded-lg text-center">
+                          Sin periodos salariales cargados.
+                        </div>
+                      ) : (
+                        compensationPeriods.map(period => (
+                          <div
+                            key={period.id}
+                            className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                                <Calendar size={14} className="text-gray-400" />
+                                <span>{toLocalDateString(period.start_date)}</span>
+                                <span className="text-gray-400">a</span>
+                                <span>{period.end_date ? toLocalDateString(period.end_date) : 'Actual'}</span>
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {formatCurrency(period.monthly_salary)} · {formatCompensationShiftNames(period, shifts)} · {deriveDailyHours(period)} h/dia
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditCompensation(period)}
+                                className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                title="Editar periodo"
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCompensation(period.id)}
+                                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Eliminar periodo"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

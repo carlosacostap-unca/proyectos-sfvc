@@ -29,6 +29,7 @@ import EvaluationSection from '@/app/components/EvaluationSection';
 import ProjectNotes from '@/app/components/ProjectNotes';
 import ProjectAssignments from '@/app/components/ProjectAssignments';
 import ProjectPhases from '@/app/components/ProjectPhases';
+import ProjectLaborCosts from '@/app/components/ProjectLaborCosts';
 
 // Helper to ensure expand fields are always arrays
 const ensureExpandList = <T,>(data: T | T[] | null | undefined): T[] => {
@@ -354,6 +355,7 @@ export default function ProjectDetail() {
             
             {/* Assignments Section */}
             <ProjectAssignments projectId={project.id} />
+            {isAdmin && <ProjectLaborCosts projectId={project.id} />}
             <ProjectPhases projectId={project.id} />
 
             {/* Tecnologías */}

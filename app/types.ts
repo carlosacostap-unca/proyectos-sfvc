@@ -46,6 +46,22 @@ export interface Personal {
   };
 }
 
+export interface PersonalCompensationPeriod {
+  id: string;
+  personal: string; // Relation to personal
+  start_date: string; // ISO Date
+  end_date?: string | null; // ISO Date, null/empty if current
+  monthly_salary: number;
+  shifts: string[]; // Relation to shifts (Multiple)
+  observations?: string;
+  created: string;
+  updated: string;
+  expand?: {
+    personal?: Personal;
+    shifts?: ShiftItem[];
+  };
+}
+
 export interface TechItem {
   id: string;
   name: string;
@@ -233,7 +249,33 @@ export interface WorkLog {
   updated: string;
   expand?: {
     project?: Project;
+    personal?: Personal;
   };
+}
+
+export interface ProjectLaborCostLine {
+  id: string;
+  workLog: WorkLog;
+  personal?: Personal;
+  compensationPeriod?: PersonalCompensationPeriod;
+  date: string;
+  hours: number;
+  monthlySalary?: number;
+  shiftCount?: number;
+  dailyHours?: number;
+  monthlyBaseHours?: number;
+  hourlyRate?: number;
+  cost: number;
+  missingCompensation: boolean;
+}
+
+export interface ProjectLaborCostSummary {
+  projectId: string;
+  totalHours: number;
+  confirmedCost: number;
+  missingCostHours: number;
+  missingCompensationCount: number;
+  lines: ProjectLaborCostLine[];
 }
 
 
