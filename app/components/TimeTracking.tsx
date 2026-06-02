@@ -6,6 +6,8 @@ import { ProjectAssignment, WorkLog, Personal, Project } from '@/app/types';
 import { Calendar, Clock, Save, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { formatLocalDate, toLocalDateString, fromLocalDateString, getLocalDayStartUTC, getLocalDayEndUTC } from '@/app/utils/date';
 import { useRouter } from 'next/navigation';
+import { listCompensationPeriodsByPersonal } from '@/app/services/compensationPeriods';
+import { calculateHourlyRate, getShiftCount } from '@/app/utils/compensation';
 
 interface TimeTrackingProps {
   userEmail: string;
@@ -39,6 +41,11 @@ type WorkLogPayload = {
   description?: string;
   project?: string | null;
   assignment?: string;
+  compensation_period?: string;
+  compensation_monthly_salary?: number;
+  compensation_shift_count?: number;
+  compensation_hourly_rate?: number;
+  compensation_labor_cost?: number;
 };
 
 export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackingProps) {
@@ -522,6 +529,9 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
       setSaving(true);
       setSuccessMessage(null);
       setFormError(null);
+
+      const compensationPeriods = await listCompensationPeriodsByPersonal(personalId);
+      const currentCompensationPeriod = compensationPeriods.find(period => !period.end_date);
       
       const promises = entries.map(async (entry) => {
         // Only save if hours > 0 or if there was a log before (to update to 0 or delete?)
@@ -559,6 +569,14 @@ export default function TimeTracking({ userEmail, isAdmin = false }: TimeTrackin
             }
         } else {
             if (entry.hours > 0) {
+                if (currentCompensationPeriod) {
+                    const hourlyRate = calculateHourlyRate(currentCompensationPeriod);
+                    data.compensation_period = currentCompensationPeriod.id;
+                    data.compensation_monthly_salary = currentCompensationPeriod.monthly_salary;
+                    data.compensation_shift_count = getShiftCount(currentCompensationPeriod);
+                    data.compensation_hourly_rate = hourlyRate;
+                    data.compensation_labor_cost = entry.hours * hourlyRate;
+                }
                 const record = await pb.collection('work_logs').create(data);
                 return { ...entry, logId: record.id };
             }

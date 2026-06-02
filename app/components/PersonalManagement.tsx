@@ -80,6 +80,19 @@ const normalizeDateInput = (value: string) => {
   return parts.join('/');
 };
 
+const areShiftSetsEqual = (first: string[], second: string[]) => {
+  if (first.length !== second.length) return false;
+  const firstSet = new Set(first);
+  return second.every(item => firstSet.has(item));
+};
+
+const addDaysToLocalDate = (dateString: string, days: number) => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return toLocalDateString(date);
+};
+
 const formatCompensationShiftNames = (item: PersonalCompensationPeriod, shifts: ShiftItem[]) => {
   const expandedShifts = item.expand?.shifts;
   if (expandedShifts && expandedShifts.length > 0) {
@@ -226,25 +239,57 @@ export default function PersonalManagement() {
   const syncCurrentCompensationPeriod = async (personalId: string) => {
     const monthlySalary = Number(formData.monthly_salary) || 0;
     const currentShifts = Array.isArray(formData.shift) ? formData.shift : [];
+    const effectiveDate = toLocalDateString(new Date());
 
     if (!personalId || monthlySalary <= 0 || currentShifts.length === 0) return;
 
     const periods = await listCompensationPeriodsByPersonal(personalId);
     const openPeriod = periods.find(period => !period.end_date);
+
+    if (openPeriod) {
+      const openPeriodStartDate = toLocalDateString(openPeriod.start_date);
+      const salaryDidChange = Number(openPeriod.monthly_salary) !== monthlySalary;
+      const shiftsDidChange = !areShiftSetsEqual(openPeriod.shifts || [], currentShifts);
+
+      if (!salaryDidChange && !shiftsDidChange) return;
+
+      if (openPeriodStartDate >= effectiveDate) {
+        await pb.collection('personal_compensation_periods').update(openPeriod.id, {
+          personal: personalId,
+          start_date: openPeriod.start_date,
+          end_date: null,
+          monthly_salary: monthlySalary,
+          shifts: currentShifts,
+          observations: openPeriod.observations || 'Periodo vigente sincronizado desde la ficha del personal.',
+        });
+        return;
+      }
+
+      await pb.collection('personal_compensation_periods').update(openPeriod.id, {
+        end_date: fromLocalDateString(addDaysToLocalDate(effectiveDate, -1)),
+      });
+
+      await pb.collection('personal_compensation_periods').create({
+        personal: personalId,
+        start_date: fromLocalDateString(effectiveDate),
+        end_date: null,
+        monthly_salary: monthlySalary,
+        shifts: currentShifts,
+        observations: 'Periodo vigente sincronizado desde la ficha del personal.',
+      });
+      return;
+    }
+
     const payload = {
       personal: personalId,
-      start_date: openPeriod?.start_date || fromLocalDateString((formData.join_date as string) || toLocalDateString(new Date())),
+      start_date: fromLocalDateString((formData.join_date as string) || effectiveDate),
       end_date: null,
       monthly_salary: monthlySalary,
       shifts: currentShifts,
-      observations: openPeriod?.observations || 'Periodo vigente sincronizado desde la ficha del personal.',
+      observations: 'Periodo vigente sincronizado desde la ficha del personal.',
     };
 
-    if (openPeriod) {
-      await pb.collection('personal_compensation_periods').update(openPeriod.id, payload);
-    } else {
-      await pb.collection('personal_compensation_periods').create(payload);
-    }
+    await pb.collection('personal_compensation_periods').create(payload);
   };
 
   useEffect(() => {

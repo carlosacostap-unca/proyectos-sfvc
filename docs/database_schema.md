@@ -183,6 +183,13 @@ Registro de horas trabajadas por el personal, opcionalmente ligadas a proyectos.
 | `date` | `string` | Fecha de trabajo (YYYY-MM-DD) ||
 | `hours` | `number` | Cantidad de horas registradas ||
 | `description` | `string` | Descripción del trabajo realizado (opcional)||
+| `compensation_period` | `string` | Periodo salarial vigente al crear el registro (snapshot opcional) | Relación a `personal_compensation_periods` |
+| `compensation_monthly_salary` | `number` | Sueldo mensual usado para calcular este registro ||
+| `compensation_shift_count` | `number` | Cantidad de turnos usada para calcular este registro ||
+| `compensation_hourly_rate` | `number` | Valor hora usado para calcular este registro ||
+| `compensation_labor_cost` | `number` | Costo de personal calculado para este registro ||
+
+Los campos `compensation_*` congelan el costo al momento de crear un registro nuevo. Asi, un cambio posterior de sueldo o turnos no recalcula registros anteriores.
 
 ---
 

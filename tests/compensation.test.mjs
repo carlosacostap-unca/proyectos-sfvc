@@ -82,3 +82,31 @@ test('calculates project labor costs and reports missing compensation', () => {
   assert.equal(summary.missingCompensationCount, 1);
 });
 
+test('uses work log compensation snapshot when present', () => {
+  const workLogs = [
+    {
+      id: 'log-snapshot',
+      personal: 'person-1',
+      project: 'project-1',
+      date: '2026-02-10',
+      hours: 1,
+      compensation_period: 'current-period',
+      compensation_monthly_salary: 2000000,
+      compensation_shift_count: 1,
+      compensation_hourly_rate: 2000000 / (HOURS_PER_SHIFT * BASE_WORKING_DAYS_PER_MONTH),
+      created: '',
+      updated: '',
+    },
+  ];
+
+  const periods = [
+    period({ id: 'old-period', start_date: '2026-01-01', end_date: '2026-06-01', monthly_salary: 1400000 }),
+    period({ id: 'current-period', start_date: '2026-06-02', end_date: null, monthly_salary: 2000000 }),
+  ];
+
+  const summary = calculateProjectLaborCostSummary('project-1', workLogs, periods);
+
+  assert.equal(summary.confirmedCost, 2000000 / (HOURS_PER_SHIFT * BASE_WORKING_DAYS_PER_MONTH));
+  assert.equal(summary.lines[0].monthlySalary, 2000000);
+  assert.equal(summary.lines[0].compensationPeriod.id, 'current-period');
+});

@@ -83,8 +83,33 @@ export const calculateWorkLogCostLine = (
   periods: PersonalCompensationPeriod[],
 ): ProjectLaborCostLine => {
   const date = normalizeDateKey(workLog.date);
-  const period = findEffectiveCompensationPeriod(periods, workLog.personal, date);
+  const snapshotHourlyRate = Number(workLog.compensation_hourly_rate) || 0;
+  const snapshotMonthlySalary = Number(workLog.compensation_monthly_salary) || 0;
+  const snapshotShiftCount = Number(workLog.compensation_shift_count) || 0;
+  const snapshotPeriod = workLog.compensation_period
+    ? periods.find(period => period.id === workLog.compensation_period)
+    : undefined;
   const hours = Number(workLog.hours) || 0;
+
+  if (snapshotHourlyRate > 0 && snapshotMonthlySalary > 0) {
+    return {
+      id: workLog.id,
+      workLog,
+      personal: workLog.expand?.personal,
+      compensationPeriod: snapshotPeriod,
+      date,
+      hours,
+      monthlySalary: snapshotMonthlySalary,
+      shiftCount: snapshotShiftCount || undefined,
+      dailyHours: snapshotShiftCount ? snapshotShiftCount * HOURS_PER_SHIFT : undefined,
+      monthlyBaseHours: snapshotShiftCount ? snapshotShiftCount * HOURS_PER_SHIFT * BASE_WORKING_DAYS_PER_MONTH : undefined,
+      hourlyRate: snapshotHourlyRate,
+      cost: hours * snapshotHourlyRate,
+      missingCompensation: false,
+    };
+  }
+
+  const period = findEffectiveCompensationPeriod(periods, workLog.personal, date);
 
   if (!period) {
     return {

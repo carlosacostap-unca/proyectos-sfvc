@@ -245,11 +245,17 @@ export interface WorkLog {
   date: string; // ISO Date YYYY-MM-DD
   hours: number;
   description?: string;
+  compensation_period?: string; // Relation to personal_compensation_periods used at creation time
+  compensation_monthly_salary?: number;
+  compensation_shift_count?: number;
+  compensation_hourly_rate?: number;
+  compensation_labor_cost?: number;
   created: string;
   updated: string;
   expand?: {
     project?: Project;
     personal?: Personal;
+    compensation_period?: PersonalCompensationPeriod;
   };
 }
 

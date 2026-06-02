@@ -95,6 +95,68 @@ async function main() {
     await pb.collections.create(schema);
     console.log('Created personal_compensation_periods collection.');
   }
+
+  await ensureWorkLogCostSnapshotFields();
+}
+
+async function ensureWorkLogCostSnapshotFields() {
+  const [workLogsCollection, compensationCollection] = await Promise.all([
+    pb.collections.getOne('work_logs'),
+    pb.collections.getOne('personal_compensation_periods'),
+  ]);
+
+  const fields = workLogsCollection.fields || workLogsCollection.schema || [];
+  const existingFieldNames = new Set(fields.map(field => field.name));
+  const fieldsToAdd = [
+    {
+      name: 'compensation_period',
+      type: 'relation',
+      required: false,
+      presentable: false,
+      cascadeDelete: false,
+      collectionId: compensationCollection.id,
+      minSelect: 0,
+      maxSelect: 1,
+    },
+    {
+      name: 'compensation_monthly_salary',
+      type: 'number',
+      required: false,
+      presentable: false,
+      min: 0,
+    },
+    {
+      name: 'compensation_shift_count',
+      type: 'number',
+      required: false,
+      presentable: false,
+      min: 0,
+    },
+    {
+      name: 'compensation_hourly_rate',
+      type: 'number',
+      required: false,
+      presentable: false,
+      min: 0,
+    },
+    {
+      name: 'compensation_labor_cost',
+      type: 'number',
+      required: false,
+      presentable: false,
+      min: 0,
+    },
+  ].filter(field => !existingFieldNames.has(field.name));
+
+  if (fieldsToAdd.length === 0) {
+    console.log('work_logs cost snapshot fields already exist.');
+    return;
+  }
+
+  await pb.collections.update(workLogsCollection.id, {
+    fields: [...fields, ...fieldsToAdd],
+  });
+  console.log(`Added work_logs cost snapshot fields: ${fieldsToAdd.map(field => field.name).join(', ')}.`);
 }
 
 async function authenticate() {

@@ -13,6 +13,10 @@ const PB_URL = normalizeUrl(
 
 const adminEmail = process.env.POCKETBASE_ADMIN_EMAIL || process.env.PB_ADMIN_EMAIL;
 const adminPassword = process.env.POCKETBASE_ADMIN_PASSWORD || process.env.PB_ADMIN_PASSWORD;
+const personalEmail = process.env.PERSONAL_EMAIL;
+const personalId = process.env.PERSONAL_ID;
+const previousMonthlySalary = Number(process.env.PREVIOUS_MONTHLY_SALARY || 0);
+const effectiveDate = process.env.EFFECTIVE_DATE || getTodayKey();
 
 const pb = new PocketBase(PB_URL);
 pb.autoCancellation(false);
@@ -20,82 +24,76 @@ pb.autoCancellation(false);
 async function main() {
   await authenticate();
 
-  const people = await pb.collection('personal').getFullList({
-    sort: 'surname,name',
-  });
-
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
-
-  for (const person of people) {
-    const monthlySalary = Number(person.monthly_salary) || 0;
-    const shifts = Array.isArray(person.shift) ? person.shift.filter(Boolean) : [];
-
-    if (monthlySalary <= 0 || shifts.length === 0) {
-      skipped++;
-      continue;
-    }
-
-    const periods = await pb.collection('personal_compensation_periods').getFullList({
-      filter: `personal = "${person.id}"`,
-      sort: '-start_date',
-    });
-    const openPeriod = periods.find(period => !period.end_date);
-
-    if (openPeriod) {
-      const effectiveDate = getTodayKey();
-      const openPeriodStartDate = toLocalDateKey(openPeriod.start_date);
-      const salaryDidChange = Number(openPeriod.monthly_salary) !== monthlySalary;
-      const shiftsDidChange = !areShiftSetsEqual(openPeriod.shifts || [], shifts);
-
-      if (!salaryDidChange && !shiftsDidChange) {
-        skipped++;
-        continue;
-      }
-
-      if (openPeriodStartDate >= effectiveDate) {
-        await pb.collection('personal_compensation_periods').update(openPeriod.id, {
-          personal: person.id,
-          start_date: openPeriod.start_date,
-          end_date: null,
-          monthly_salary: monthlySalary,
-          shifts,
-          observations: openPeriod.observations || 'Periodo vigente sincronizado desde la ficha del personal.',
-        });
-        updated++;
-        continue;
-      }
-
-      await pb.collection('personal_compensation_periods').update(openPeriod.id, {
-        end_date: toPocketBaseDate(addDaysToLocalDate(effectiveDate, -1)),
-      });
-
-      await pb.collection('personal_compensation_periods').create({
-        personal: person.id,
-        start_date: toPocketBaseDate(effectiveDate),
-        end_date: null,
-        monthly_salary: monthlySalary,
-        shifts,
-        observations: 'Periodo vigente sincronizado desde la ficha del personal.',
-      });
-      created++;
-      updated++;
-      continue;
-    }
-
-    await pb.collection('personal_compensation_periods').create({
-      personal: person.id,
-      start_date: toPocketBaseDate(person.join_date || person.created || new Date()),
-      end_date: null,
-      monthly_salary: monthlySalary,
-      shifts,
-      observations: 'Periodo vigente sincronizado desde la ficha del personal.',
-    });
-    created++;
+  if (!personalEmail && !personalId) {
+    throw new Error('Set PERSONAL_EMAIL or PERSONAL_ID.');
   }
 
-  console.log(`Sync complete. Created: ${created}. Updated: ${updated}. Skipped: ${skipped}.`);
+  if (!previousMonthlySalary || previousMonthlySalary <= 0) {
+    throw new Error('Set PREVIOUS_MONTHLY_SALARY with the salary that must remain on the historical period.');
+  }
+
+  const person = personalId
+    ? await pb.collection('personal').getOne(personalId)
+    : await pb.collection('personal').getFirstListItem(`email = "${personalEmail}"`);
+
+  const currentMonthlySalary = Number(process.env.CURRENT_MONTHLY_SALARY || person.monthly_salary || 0);
+  const currentShifts = Array.isArray(person.shift) ? person.shift.filter(Boolean) : [];
+
+  if (!currentMonthlySalary || currentMonthlySalary <= 0) {
+    throw new Error(`Current monthly salary is invalid for ${person.email || person.id}.`);
+  }
+
+  if (currentShifts.length === 0) {
+    throw new Error(`Current shifts are empty for ${person.email || person.id}.`);
+  }
+
+  const periods = await pb.collection('personal_compensation_periods').getFullList({
+    filter: `personal = "${person.id}"`,
+    sort: '-start_date',
+  });
+  const openPeriod = periods.find(period => !period.end_date);
+
+  if (!openPeriod) {
+    throw new Error(`No open compensation period found for ${person.email || person.id}.`);
+  }
+
+  const openPeriodStart = toLocalDateKey(openPeriod.start_date);
+  if (openPeriodStart >= effectiveDate) {
+    await pb.collection('personal_compensation_periods').update(openPeriod.id, {
+      monthly_salary: currentMonthlySalary,
+      shifts: currentShifts,
+    });
+    console.log(`Updated existing current period ${openPeriod.id}; it already starts on/after ${effectiveDate}.`);
+    return;
+  }
+
+  await pb.collection('personal_compensation_periods').update(openPeriod.id, {
+    end_date: toPocketBaseDate(addDaysToLocalDate(effectiveDate, -1)),
+    monthly_salary: previousMonthlySalary,
+  });
+
+  const existingCurrent = periods.find(period => toLocalDateKey(period.start_date) === effectiveDate);
+  if (existingCurrent) {
+    await pb.collection('personal_compensation_periods').update(existingCurrent.id, {
+      end_date: null,
+      monthly_salary: currentMonthlySalary,
+      shifts: currentShifts,
+      observations: existingCurrent.observations || 'Periodo vigente creado al separar un cambio salarial.',
+    });
+  } else {
+    await pb.collection('personal_compensation_periods').create({
+      personal: person.id,
+      start_date: toPocketBaseDate(effectiveDate),
+      end_date: null,
+      monthly_salary: currentMonthlySalary,
+      shifts: currentShifts,
+      observations: 'Periodo vigente creado al separar un cambio salarial.',
+    });
+  }
+
+  console.log(
+    `Split compensation for ${person.email || person.id}: previous ${previousMonthlySalary} until ${addDaysToLocalDate(effectiveDate, -1)}, current ${currentMonthlySalary} from ${effectiveDate}.`,
+  );
 }
 
 async function authenticate() {
@@ -145,12 +143,6 @@ function addDaysToLocalDate(dateString, days) {
   return toLocalDateKey(date);
 }
 
-function areShiftSetsEqual(first, second) {
-  if (first.length !== second.length) return false;
-  const firstSet = new Set(first);
-  return second.every(item => firstSet.has(item));
-}
-
 function normalizeUrl(value) {
   return String(value || '').trim().replace(/\/$/, '');
 }
@@ -180,3 +172,4 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+

@@ -33,7 +33,14 @@ const expectedFields = {
   personal: ["working_hours", "monthly_salary"],
   personal_compensation_periods: ["personal", "start_date", "end_date", "monthly_salary", "shifts"],
   project_notes: ["author_name", "author_email"],
-  work_logs: ["description"],
+  work_logs: [
+    "description",
+    "compensation_period",
+    "compensation_monthly_salary",
+    "compensation_shift_count",
+    "compensation_hourly_rate",
+    "compensation_labor_cost",
+  ],
 };
 
 let authAttempted = false;
