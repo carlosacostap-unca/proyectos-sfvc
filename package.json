@@ -14,6 +14,7 @@
     "test:e2e:headed": "playwright test --headed",
     "schema:compensation-periods": "node scripts/ensure_compensation_periods_schema.mjs",
     "backfill:compensation-periods": "node scripts/backfill_personal_compensation_periods.mjs",
+    "sync:compensation-periods": "node scripts/sync_current_compensation_periods.mjs",
     "verify:compensation-ui": "node scripts/verify_compensation_ui.mjs",
     "openspec": "openspec",
     "spec:list": "openspec list",

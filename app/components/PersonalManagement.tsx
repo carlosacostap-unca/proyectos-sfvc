@@ -223,6 +223,30 @@ export default function PersonalManagement() {
     }
   };
 
+  const syncCurrentCompensationPeriod = async (personalId: string) => {
+    const monthlySalary = Number(formData.monthly_salary) || 0;
+    const currentShifts = Array.isArray(formData.shift) ? formData.shift : [];
+
+    if (!personalId || monthlySalary <= 0 || currentShifts.length === 0) return;
+
+    const periods = await listCompensationPeriodsByPersonal(personalId);
+    const openPeriod = periods.find(period => !period.end_date);
+    const payload = {
+      personal: personalId,
+      start_date: openPeriod?.start_date || fromLocalDateString((formData.join_date as string) || toLocalDateString(new Date())),
+      end_date: null,
+      monthly_salary: monthlySalary,
+      shifts: currentShifts,
+      observations: openPeriod?.observations || 'Periodo vigente sincronizado desde la ficha del personal.',
+    };
+
+    if (openPeriod) {
+      await pb.collection('personal_compensation_periods').update(openPeriod.id, payload);
+    } else {
+      await pb.collection('personal_compensation_periods').create(payload);
+    }
+  };
+
   useEffect(() => {
     const loadInitialData = async () => {
       await Promise.all([
@@ -327,12 +351,24 @@ export default function PersonalManagement() {
         data.append('cv', cvFile);
       }
 
+      let savedPersonalId = editingId;
+
       if (editingId) {
         await pb.collection('personal').update(editingId, data);
         toast.success('Personal actualizado correctamente');
       } else {
-        await pb.collection('personal').create(data);
+        const createdPersonal = await pb.collection('personal').create<Personal>(data);
+        savedPersonalId = createdPersonal.id;
         toast.success('Personal creado correctamente');
+      }
+
+      if (savedPersonalId) {
+        try {
+          await syncCurrentCompensationPeriod(savedPersonalId);
+        } catch (syncError) {
+          console.error('Error syncing current compensation period:', syncError);
+          toast.error('El personal se guardo, pero no se pudo sincronizar el periodo salarial vigente.');
+        }
       }
       
       resetForm();
